@@ -8,12 +8,12 @@ const userSchema = new Schema(
         avatar: {
             type: {
                 url: String,
-                localPath: String
+                localPath: String,
             },
             default: {
                 url: `https://placehold.co/200?text=No+Image`,
-                localPath: ""
-            }
+                localPath: "",
+            },
         },
         username: {
             type: String,
@@ -23,7 +23,7 @@ const userSchema = new Schema(
             lowercase: true,
             index: true,
             minlength: 5,
-            maxlength: 40
+            maxlength: 40,
         },
         email: {
             type: String,
@@ -35,17 +35,17 @@ const userSchema = new Schema(
         fullName: {
             type: String,
             trim: true,
-            minlength: 5
+            minlength: 5,
         },
         password: {
             type: String,
             required: [true, "Password is required"],
             minlength: 8,
-            select: false
+            select: false,
         },
         isEmailVerified: {
             type: Boolean,
-            default: false
+            default: false,
         },
         refreshToken: {
             type: String,
@@ -54,25 +54,25 @@ const userSchema = new Schema(
             type: String,
         },
         forgotPasswordTokenExpiry: {
-            type: Date
+            type: Date,
         },
         emailVerificationToken: {
             type: String,
         },
         emailVerificationTokenExpiry: {
-            type: Date
-        }
-    }, 
+            type: Date,
+        },
+    },
     {
-        timestamps: true
-    }
+        timestamps: true,
+    },
 );
 
 userSchema.pre("save", async function () {
     if (!this.isModified("password")) {
         return;
     }
-    this.password = await bcrypt.hash(this.password,10);
+    this.password = await bcrypt.hash(this.password, 10);
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
@@ -81,20 +81,20 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 
 userSchema.methods.generateAccessToken = function () {
     return jwt.sign(
-        { 
+        {
             _id: this._id,
             username: this.username,
-            email: this.email
+            email: this.email,
         },
         process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
+        { expiresIn: process.env.ACCESS_TOKEN_EXPIRY },
     );
 };
 
 userSchema.methods.generateRefreshToken = function () {
     return jwt.sign(
         {
-            _id: this._id
+            _id: this._id,
         },
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: process.env.REFRESH_TOKEN_EXPIRY },
@@ -104,11 +104,11 @@ userSchema.methods.generateRefreshToken = function () {
 userSchema.methods.generateTemporaryToken = function () {
     const unHashedToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto
-                        .createHash("sha256")
-                        .update(unHashedToken)
-                        .digest("hex");
+        .createHash("sha256")
+        .update(unHashedToken)
+        .digest("hex");
     const tokenExpiry = Date.now() + 20 * 60 * 1000; // 20 minutes from now
     return { unHashedToken, hashedToken, tokenExpiry };
-}
+};
 
 export const User = mongoose.model("User", userSchema);

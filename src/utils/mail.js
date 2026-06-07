@@ -6,7 +6,7 @@ const sendEmail = async (options) => {
         theme: "default",
         product: {
             name: "TaskFlow",
-                link: "http://taskflow.com",   
+            link: "http://taskflow.com",
         },
     });
 
@@ -18,19 +18,19 @@ const sendEmail = async (options) => {
         port: process.env.MAILTRAP_SMTP_PORT,
         auth: {
             user: process.env.MAILTRAP_SMTP_USERNAME,
-            pass: process.env.MAILTRAP_SMTP_PASSWORD
-        }
+            pass: process.env.MAILTRAP_SMTP_PASSWORD,
+        },
     });
 
     const mail = {
         from: "mail@taskflow.com",
-        to : options.mail,
+        to: options.mail,
         subject: options.subject,
         text: emailText,
-        html: emailHTML
-    }
+        html: emailHTML,
+    };
 
-    try{
+    try {
         await transporter.sendMail(mail);
     } catch (error) {
         console.error("Error sending email:", error);
@@ -63,15 +63,16 @@ const forgotPasswordTemplate = (username, resetUrl) => {
             name: username,
             intro: "You have requested to reset your password for your TaskFlow account.",
             action: {
-                instructions: "To reset your password, please click the button below:",
+                instructions:
+                    "To reset your password, please click the button below:",
                 button: {
                     color: "#22BC66",
                     text: "Reset Password",
-                    link: resetUrl
-                }
+                    link: resetUrl,
+                },
             },
-            outro: "If you did not request a password reset, please ignore this email. If you have any questions, feel free to reply to this email."
-        }
+            outro: "If you did not request a password reset, please ignore this email. If you have any questions, feel free to reply to this email.",
+        },
     };
 };
 

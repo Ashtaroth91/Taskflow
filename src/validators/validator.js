@@ -4,33 +4,95 @@ export const registerValidationRules = () => {
     return [
         body("username")
             .trim()
-            .notEmpty().withMessage("Username is required")
-            .isLength({ min: 5 }).withMessage("Username must be at least 5 characters long")
-            .isLowercase().withMessage("Username must be in lowercase"),
+            .notEmpty()
+            .withMessage("Username is required")
+            .isLength({ min: 5 })
+            .withMessage("Username must be at least 5 characters long")
+            .toLowerCase(),
         body("email")
             .trim()
-            .notEmpty().withMessage("Email is required")
-            .isEmail().withMessage("Invalid email format"),
+            .notEmpty()
+            .withMessage("Email is required")
+            .isEmail()
+            .withMessage("Invalid email format"),
         body("password")
             .trim()
-            .notEmpty().withMessage("Password is required")
-            .isLength({ min: 8 }).withMessage("Password must be at least 8 characters long")
+            .notEmpty()
+            .withMessage("Password is required")
+            .isLength({ min: 8 })
+            .withMessage("Password must be at least 8 characters long"),
     ];
 };
 
-export const loginValidationRules = () => { 
+export const loginValidationRules = () => {
     return [
         body("username")
             .optional()
             .trim()
-            .isLength({ min: 5 }).withMessage("Username must be at least 5 characters long")
-            .isLowercase().withMessage("Username must be in lowercase"),
+            .isLength({ min: 5 })
+            .withMessage("Username must be at least 5 characters long")
+            .isLowercase()
+            .withMessage("Username must be in lowercase"),
         body("email")
             .optional()
             .trim()
-            .isEmail().withMessage("Invalid email format"),
-        body("password")
+            .isEmail()
+            .withMessage("Invalid email format"),
+        body("password").trim().notEmpty().withMessage("Password is required"),
+    ];
+};
+
+export const forgotPasswordValidationRules = () => {
+    return [
+        body("email")
             .trim()
-            .notEmpty().withMessage("Password is required")
+            .notEmpty()
+            .withMessage("Email is required")
+            .isEmail()
+            .withMessage("Invalid email format"),
+    ];
+};
+
+export const resetPasswordValidationRules = () => {
+    return [
+        body("newPassword")
+            .trim()
+            .notEmpty()
+            .withMessage("Password is required")
+            .isLength({ min: 8 })
+            .withMessage("Password must be at least 8 characters long"),
+        body("confirmNewPassword")
+            .notEmpty()
+            .withMessage("Confirm new password is required")
+            .custom((value, { req }) => {
+                if (value !== req.body.newPassword) {
+                    throw new Error("Passwords do not match");
+                }
+                return true;
+            }),
+    ];
+};
+
+export const changePasswordValidationRules = () => {
+    return [
+        body("oldPassword")
+            .trim()
+            .notEmpty()
+            .withMessage("Old password is required"),
+        body("newPassword")
+            .trim()
+            .notEmpty()
+            .withMessage("New password is required")
+            .isLength({ min: 8 })
+            .withMessage("Password must be at least 8 characters long"),
+        body("confirmNewPassword")
+            .notEmpty()
+            .withMessage("Confirm new password is required")
+            .custom((value, { req }) => {
+                if (value !== req.body.newPassword) {
+                    throw new Error("Passwords do not match");
+                }
+                return true;
+            }),
     ];
 };
