@@ -76,4 +76,22 @@ const forgotPasswordTemplate = (username, resetUrl) => {
     };
 };
 
+const projectInvitationTemplate = (username, projectName, role, projectUrl) => {
+    return {
+        body: {
+            name: username,
+            intro: `You have been added to the project "${projectName}" on TaskFlow.`,
+            action: {
+                instructions: `You have been assigned the role of ${role}. Log in to TaskFlow to start collaborating with your team.`,
+                button: {
+                    color: "#22BC66",
+                    text: "Open TaskFlow",
+                    link: projectUrl,
+                },
+            },
+            outro: "If you believe this invitation was sent by mistake, please contact the project administrator.",
+        },
+    };
+};
+
 export { emailVerificationTemplate, forgotPasswordTemplate, sendEmail };

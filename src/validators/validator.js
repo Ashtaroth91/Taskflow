@@ -1,4 +1,5 @@
 import { body } from "express-validator";
+import { AvailableUserRoles } from "../utils/constants.js";
 
 export const registerValidationRules = () => {
     return [
@@ -94,5 +95,36 @@ export const changePasswordValidationRules = () => {
                 }
                 return true;
             }),
+    ];
+};
+
+export const createProjectRules = () => {
+    return [
+        body("name")
+            .trim()
+            .notEmpty()
+            .withMessage("Project name required!!!")
+            .isLength({ min: 5 }),
+        body("description")
+            .trim()
+            .notEmpty()
+            .withMessage("Project description required")
+            .isLength({ min: 20 }),
+    ];
+};
+
+export const addMembertoProjectRules = () => {
+    return [
+        body("email")
+            .trim()
+            .notEmpty()
+            .withMessage("Email is required!!!")
+            .isEmail()
+            .withMessage("Invalid email format!!!"),
+        body("role")
+            .notEmpty()
+            .withMessage("Role is required!!!")
+            .isIn(AvailableUserRoles)
+            .withMessage("Role is invalid!!!"),
     ];
 };

@@ -21,8 +21,12 @@ const subTaskSchema = new Schema(
             ref: "User",
             required: true,
         },
+        project: {
+            type: ObjectId,
+            ref: "Project",
+        },
     },
     { timestamps: true },
 );
 
-export const subTask = mongoose.model("SubTask", subTaskSchema);
+export const SubTask = mongoose.model("SubTask", subTaskSchema);
