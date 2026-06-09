@@ -43,7 +43,7 @@ const listProject = asyncHandler(async (req, res) => {
     const projects = await ProjectMember.aggregate([
         {
             $match: {
-                user: req.user._id,
+                user: new mongoose.Types.ObjectId(req.user._id),
             },
         },
         {

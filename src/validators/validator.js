@@ -128,3 +128,51 @@ export const addMembertoProjectRules = () => {
             .withMessage("Role is invalid!!!"),
     ];
 };
+
+export const createTaskRules = () => {
+    return [
+        body("title")
+            .trim()
+            .notEmpty()
+            .withMessage("Title is required!!!")
+            .isLength({ min: 5 })
+            .withMessage("Title must be at least 5 characters long"),
+        body("description")
+            .trim()
+            .optional()
+            .isLength({ min: 20 })
+            .withMessage("Description must be at least 20 characters long"),
+        body("assignedTo")
+            .notEmpty()
+            .withMessage("Assigned user is required")
+            .isMongoId()
+            .withMessage("Invalid user ID"),
+    ];
+};
+
+export const createSubTaskRules = () => {
+    return [
+        body("title")
+            .trim()
+            .notEmpty()
+            .withMessage("Title is required!!!")
+            .isLength({ min: 5 })
+            .withMessage("Title must be at least 5 characters long"),
+    ];
+};
+
+export const updateTaskRules = () => {
+    return [
+        body("title")
+            .trim()
+            .notEmpty()
+            .withMessage("Title is required!!!")
+            .isLength({ min: 5 })
+            .withMessage("Title must be at least 5 characters long"),
+        body("description")
+            .trim()
+            .optional()
+            .isLength({ min: 20 })
+            .withMessage("Description must be at least 20 characters long"),
+    ];
+};

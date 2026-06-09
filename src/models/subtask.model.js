@@ -22,7 +22,7 @@ const subTaskSchema = new Schema(
             required: true,
         },
         project: {
-            type: ObjectId,
+            type: Schema.Types.ObjectId,
             ref: "Project",
         },
     },

@@ -29,11 +29,6 @@ const taskSchema = new Schema(
             enum: AvailableTaskStatus,
             default: TaskStatusEnum.TODO,
         },
-        createdBy: {
-            type: Schema.Types.ObjectId,
-            ref: "User",
-            required: true,
-        },
         attachments: {
             type: [
                 {
