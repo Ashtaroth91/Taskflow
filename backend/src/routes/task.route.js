@@ -14,6 +14,7 @@ import {
     createSubTaskRules,
     updateTaskRules,
 } from "../validators/validator.js";
+import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validator.middleware.js";
 import {
     verifyJWT,
@@ -31,9 +32,10 @@ router
     .route("/:projectId")
     .get(roleBasedPermission(AvailableUserRoles), listTasks)
     .post(
+        roleBasedPermission([UserRolesEnum.ADMIN, UserRolesEnum.PROJECT_ADMIN]),
+        upload.array("attachments", 5),
         createTaskRules(),
         validate,
-        roleBasedPermission([UserRolesEnum.ADMIN, UserRolesEnum.PROJECT_ADMIN]),
         createTask,
     );
 
