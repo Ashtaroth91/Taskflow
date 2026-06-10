@@ -1,13 +1,15 @@
 import { User } from "../models/user.model.js";
 import { Project } from "../models/project.model.js";
 import { ProjectMember } from "../models/projectmember.model.js";
+import { Task } from "../models/tasks.model.js";
+import { Note } from "../models/notes.model.js";
+import { SubTask } from "../models/subtask.model.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { ApiResponse } from "../utils/api-response.js";
 import { ApiError } from "../utils/api-error.js";
 import {
     sendEmail,
-    emailVerificationTemplate,
-    forgotPasswordTemplate,
+    projectInvitationTemplate,
 } from "../utils/mail.js";
 import mongoose from "mongoose";
 import { AvailableUserRoles, UserRolesEnum } from "../utils/constants.js";

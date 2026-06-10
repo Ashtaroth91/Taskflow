@@ -271,15 +271,15 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
                 ),
             );
     } catch (err) {
-        if (error instanceof jwt.JsonWebTokenError) {
+        if (err instanceof jwt.JsonWebTokenError) {
             throw new ApiError(401, "Invalid Refresh Token");
         }
 
-        if (error instanceof jwt.TokenExpiredError) {
+        if (err instanceof jwt.TokenExpiredError) {
             throw new ApiError(401, "Refresh Token Expired");
         }
 
-        throw error;
+        throw err;
     }
 });
 
@@ -318,7 +318,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
             new ApiResponse(
                 200,
                 null,
-                "If an account exists, a reset email has been sent",
+                "If an account exists, a reset email has been sent.",
             ),
         );
 });

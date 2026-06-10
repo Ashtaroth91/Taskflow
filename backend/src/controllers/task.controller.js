@@ -214,7 +214,7 @@ const createSubTask = asyncHandler(async (req, res) => {
     const subTask = await SubTask.create({
         title,
         task: taskId,
-        createdBy: req.user._id,
+        assignedBy: req.user._id,
         project: projectId,
     });
 

@@ -176,3 +176,12 @@ export const updateTaskRules = () => {
             .withMessage("Description must be at least 20 characters long"),
     ];
 };
+
+export const createNoteRules = () => {
+    return [
+        body("content")
+            .trim()
+            .notEmpty()
+            .withMessage("Content is required!!!"),
+    ];
+};

@@ -94,4 +94,4 @@ const projectInvitationTemplate = (username, projectName, role, projectUrl) => {
     };
 };
 
-export { emailVerificationTemplate, forgotPasswordTemplate, sendEmail };
+export { emailVerificationTemplate, forgotPasswordTemplate, sendEmail, projectInvitationTemplate };
