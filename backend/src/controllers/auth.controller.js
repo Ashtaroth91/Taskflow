@@ -26,6 +26,21 @@ const getAccessAndRefreshTokens = async (userId) => {
     }
 };
 
+const getFrontendUrl = (req) => {
+    const origin = req.get("origin");
+    if (origin) return origin;
+    const referer = req.get("referer");
+    if (referer) {
+        try {
+            const parsed = new URL(referer);
+            return parsed.origin;
+        } catch (e) {
+            // ignore
+        }
+    }
+    return process.env.CORS_ORIGIN?.split(",")[0] || "http://localhost:5173";
+};
+
 const registerUser = asyncHandler(async (req, res) => {
     const { username, email, password } = req.body;
     const existingUser = await User.findOne({
@@ -50,12 +65,13 @@ const registerUser = asyncHandler(async (req, res) => {
     user.emailVerificationTokenExpiry = tokenExpiry;
     await user.save({ validateBeforeSave: false });
 
+    const frontendUrl = getFrontendUrl(req);
     await sendEmail({
         mail: user?.email,
         subject: "Verify your email for TaskFlow",
         mailgenContent: emailVerificationTemplate(
             user.username,
-            `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
+            `${frontendUrl}/verify-email/${unHashedToken}`,
         ),
     });
 
@@ -303,12 +319,13 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.forgotPasswordTokenExpiry = tokenExpiry;
     await user.save({ validateBeforeSave: false });
 
+    const frontendUrl = getFrontendUrl(req);
     await sendEmail({
         mail: user?.email,
         subject: "Reset password for your TaskFlow account",
         mailgenContent: forgotPasswordTemplate(
             user.username,
-            `${req.protocol}://${req.get("host")}/api/v1/auth/reset-password/${unHashedToken}`,
+            `${frontendUrl}/reset-password/${unHashedToken}`,
         ),
     });
 

@@ -152,12 +152,14 @@ const getTask = asyncHandler(async (req, res) => {
 });
 
 const updateTask = asyncHandler(async (req, res) => {
-    const { title, description } = req.body;
+    const { title, description, status, assignedTo } = req.body;
     const { projectId, taskId } = req.params;
 
     let updateData = {};
-    if (title) updateData.title = title;
-    if (description) updateData.description = description;
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (status !== undefined) updateData.status = status;
+    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
 
     const task = await Task.findOneAndUpdate(
         {
@@ -224,8 +226,12 @@ const createSubTask = asyncHandler(async (req, res) => {
 });
 
 const updateSubTask = asyncHandler(async (req, res) => {
-    const { title } = req.body;
+    const { title, isCompleted } = req.body;
     const { projectId, subTaskId } = req.params;
+
+    let updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (isCompleted !== undefined) updateData.isCompleted = isCompleted;
 
     const subTask = await SubTask.findOneAndUpdate(
         {
@@ -233,7 +239,7 @@ const updateSubTask = asyncHandler(async (req, res) => {
             project: projectId,
         },
         {
-            $set: { title },
+            $set: updateData,
         },
         {
             returnDocument: "after",

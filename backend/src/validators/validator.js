@@ -1,5 +1,5 @@
 import { body } from "express-validator";
-import { AvailableUserRoles } from "../utils/constants.js";
+import { AvailableUserRoles, AvailableTaskStatus } from "../utils/constants.js";
 
 export const registerValidationRules = () => {
     return [
@@ -165,8 +165,7 @@ export const updateTaskRules = () => {
     return [
         body("title")
             .trim()
-            .notEmpty()
-            .withMessage("Title is required!!!")
+            .optional()
             .isLength({ min: 5 })
             .withMessage("Title must be at least 5 characters long"),
         body("description")
@@ -174,6 +173,14 @@ export const updateTaskRules = () => {
             .optional()
             .isLength({ min: 20 })
             .withMessage("Description must be at least 20 characters long"),
+        body("status")
+            .optional()
+            .isIn(AvailableTaskStatus)
+            .withMessage("Invalid status value"),
+        body("assignedTo")
+            .optional()
+            .isMongoId()
+            .withMessage("Invalid user ID"),
     ];
 };
 
@@ -183,5 +190,19 @@ export const createNoteRules = () => {
             .trim()
             .notEmpty()
             .withMessage("Content is required!!!"),
+    ];
+};
+
+export const updateSubTaskRules = () => {
+    return [
+        body("title")
+            .trim()
+            .optional()
+            .isLength({ min: 5 })
+            .withMessage("Title must be at least 5 characters long"),
+        body("isCompleted")
+            .optional()
+            .isBoolean()
+            .withMessage("isCompleted must be a boolean"),
     ];
 };

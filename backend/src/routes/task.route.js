@@ -13,6 +13,7 @@ import {
     createTaskRules,
     createSubTaskRules,
     updateTaskRules,
+    updateSubTaskRules,
 } from "../validators/validator.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { validate } from "../middlewares/validator.middleware.js";
@@ -65,7 +66,7 @@ router
 router
     .route("/:projectId/subtasks/:subTaskId")
     .put(
-        createSubTaskRules(),
+        updateSubTaskRules(),
         validate,
         roleBasedPermission(AvailableUserRoles),
         updateSubTask,

@@ -14,6 +14,21 @@ import {
 import mongoose from "mongoose";
 import { AvailableUserRoles, UserRolesEnum } from "../utils/constants.js";
 
+const getFrontendUrl = (req) => {
+    const origin = req.get("origin");
+    if (origin) return origin;
+    const referer = req.get("referer");
+    if (referer) {
+        try {
+            const parsed = new URL(referer);
+            return parsed.origin;
+        } catch (e) {
+            // ignore
+        }
+    }
+    return process.env.CORS_ORIGIN?.split(",")[0] || "http://localhost:5173";
+};
+
 const getProjectbyId = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
     const project = await Project.findById(projectId);
@@ -79,12 +94,12 @@ const listProject = asyncHandler(async (req, res) => {
         {
             $project: {
                 project: {
-                    _id: 1,
-                    name: 1,
-                    description: 1,
-                    members: 1,
-                    createdAt: 1,
-                    createdBy: 1,
+                    _id: "$projects._id",
+                    name: "$projects.name",
+                    description: "$projects.description",
+                    members: "$projects.members",
+                    createdAt: "$projects.createdAt",
+                    createdBy: "$projects.createdBy",
                 },
                 role: 1,
                 _id: 0,
@@ -199,6 +214,7 @@ const addProjectMembers = asyncHandler(async (req, res) => {
         project: projectId,
         role,
     });
+    const frontendUrl = getFrontendUrl(req);
     await sendEmail({
         mail: user?.email,
         subject: `Added to ${project.name}`,
@@ -206,7 +222,7 @@ const addProjectMembers = asyncHandler(async (req, res) => {
             user.username,
             project.name,
             role,
-            `${req.protocol}://${req.get("host")}/api/v1/projects/${project._id}`,
+            `${frontendUrl}/project/${project._id}`,
         ),
     });
     return res
