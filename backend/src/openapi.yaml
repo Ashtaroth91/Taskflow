@@ -1,0 +1,2522 @@
+openapi: 3.0.3
+info:
+  title: TaskFlow API Documentation
+  version: 1.0.0
+  description: >
+    Production-grade RESTful API specification for TaskFlow, a collaborative project management and workflow platform.
+    Features JWT authentication, role-based access control (RBAC), multi-member project workspaces, task tracking with subtasks and file attachments, and note documentation.
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local Development Server
+
+tags:
+  - name: Health Check
+    description: System operational health check endpoints
+  - name: Authentication
+    description: Account registration, session management, password recovery, and email verification
+  - name: Users
+    description: Authenticated user profile and account management
+  - name: Projects
+    description: Project workspace management and member access control
+  - name: Tasks
+    description: Task lifecycle management, subtasks, and file attachment handling
+  - name: Notes
+    description: Collaborative project documentation notes
+
+paths:
+  /healthcheck:
+    get:
+      tags:
+        - Health Check
+      summary: Check service health status
+      description: >
+        **Purpose**: Performs an operational health check on the API service to verify server status and database connectivity.<br>
+        **Authorization**: Public (No authentication required).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP status 200 with JSON payload `{ status: "OK" }`.
+      operationId: getHealthStatus
+      responses:
+        "200":
+          description: Service is healthy and operational.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Health check successful
+                data:
+                  status: OK
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user account
+      description: >
+        **Purpose**: Registers a new user account in the TaskFlow system.<br>
+        **Authorization**: Public (No authentication required).<br>
+        **Side Effects**: Creates a new user record in MongoDB with hashed password, generates a temporary SHA-256 email verification token, and sends a verification email.<br>
+        **Expected Behavior**: Returns HTTP 201 with the created user object omitting sensitive fields. Throws HTTP 409 if username or email already exists.
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterUserRequest'
+      responses:
+        "201":
+          description: User account created successfully. Verification email dispatched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: User registered successfully. Please check your email to verify your account.
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e4f
+                  username: alex_rivera
+                  email: alex.rivera@taskflow.dev
+                  fullName: Alex Rivera
+                  isEmailVerified: false
+                  avatar:
+                    url: https://placehold.co/200?text=No+Image
+                    localPath: ""
+                  createdAt: "2026-01-15T08:30:00.000Z"
+                  updatedAt: "2026-01-15T08:30:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user credentials
+      description: >
+        **Purpose**: Authenticates a user using email or username along with their password.<br>
+        **Authorization**: Public (No authentication required).<br>
+        **Side Effects**: Saves hashed refresh token to user document in database and sets HTTP-Only `refreshToken` cookie.<br>
+        **Expected Behavior**: Returns HTTP 200 with User profile object, JWT Access Token, and Refresh Token.
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginUserRequest'
+      responses:
+        "200":
+          description: User authenticated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: User logged in successfully
+                data:
+                  user:
+                    _id: 650c1f1e2f8b9a001c2d3e4f
+                    username: alex_rivera
+                    email: alex.rivera@taskflow.dev
+                    fullName: Alex Rivera
+                    isEmailVerified: true
+                    avatar:
+                      url: https://placehold.co/200?text=No+Image
+                      localPath: ""
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NTBjMWYxZTJmOGI5YTAwMWMyZDNlNGYiLCJ1c2VybmFtZSI6ImFsZXhfcml2ZXJhIiwiZW1haWwiOiJhbGV4LnJpdmVyYUB0YXNrZmxvdy5kZXYiLCJpYXQiOjE3Njg0NjYwMDAsImV4cCI6MTc2ODU1MjQwMH0.signature
+                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NTBjMWYxZTJmOGI5YTAwMWMyZDNlNGYiLCJpYXQiOjE3Njg0NjYwMDAsImV4cCI6MTc2OTA3MDgwMH0.signature
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/verify-email/{verificationToken}:
+    get:
+      tags:
+        - Authentication
+      summary: Verify user email address
+      description: >
+        **Purpose**: Validates the email verification token sent via email and marks user account as verified.<br>
+        **Authorization**: Public.<br>
+        **Side Effects**: Sets `isEmailVerified: true` and clears `emailVerificationToken` and `emailVerificationTokenExpiry` on User document.<br>
+        **Expected Behavior**: Returns HTTP 200 on successful verification. Throws HTTP 400 if token is invalid or expired.
+      operationId: verifyEmail
+      parameters:
+        - name: verificationToken
+          in: path
+          required: true
+          description: SHA-256 unhashed token received via verification email link
+          schema:
+            type: string
+          example: 4a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
+      responses:
+        "200":
+          description: User email verified successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Email verified successfully
+                data: {}
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh-token:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access and refresh tokens
+      description: >
+        **Purpose**: Issues a fresh JWT Access Token and Refresh Token pair using an active Refresh Token.<br>
+        **Authorization**: Public (Accepts Refresh Token via cookie or request body).<br>
+        **Side Effects**: Updates `refreshToken` field in MongoDB user document and resets cookie.<br>
+        **Expected Behavior**: Returns HTTP 200 with new Access Token and Refresh Token.
+      operationId: refreshAccessToken
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Optional explicit refresh token string if HTTP-only cookie is not present
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: Tokens refreshed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Access token refreshed successfully
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset email
+      description: >
+        **Purpose**: Initiates password recovery process for a registered user.<br>
+        **Authorization**: Public.<br>
+        **Side Effects**: Generates temporary SHA-256 reset token with 20-minute expiration and dispatches email with reset link.<br>
+        **Expected Behavior**: Returns HTTP 200 acknowledging reset request. Throws 404 if email is not registered.
+      operationId: forgotPassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordRequest'
+      responses:
+        "200":
+          description: Password reset email dispatched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Password reset mail sent successfully
+                data: {}
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/reset-password/{resetToken}:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password using reset token
+      description: >
+        **Purpose**: Sets a new account password using a valid password reset token.<br>
+        **Authorization**: Public.<br>
+        **Side Effects**: Replaces existing hashed password, invalidates reset token, and clears token expiration.<br>
+        **Expected Behavior**: Returns HTTP 200 on successful password update. Throws HTTP 400 if token is invalid, expired, or passwords do not match.
+      operationId: resetPassword
+      parameters:
+        - name: resetToken
+          in: path
+          required: true
+          description: Temporary password reset token from email link
+          schema:
+            type: string
+          example: 9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+      responses:
+        "200":
+          description: Password reset successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Password reset successfully
+                data: {}
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout current user
+      description: >
+        **Purpose**: Logs out the current user session.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: Removes `refreshToken` from user document in MongoDB and clears authentication cookies (`accessToken` and `refreshToken`).<br>
+        **Expected Behavior**: Returns HTTP 200 confirming user logged out.
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Logout successful and cookies cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: User logged out successfully
+                data: {}
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/current-user:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      description: >
+        **Purpose**: Fetches profile data of the currently authenticated user.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with User profile object.
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile fetched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Current user fetched successfully
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e4f
+                  username: alex_rivera
+                  email: alex.rivera@taskflow.dev
+                  fullName: Alex Rivera
+                  isEmailVerified: true
+                  avatar:
+                    url: https://placehold.co/200?text=No+Image
+                    localPath: ""
+                  createdAt: "2026-01-15T08:30:00.000Z"
+                  updatedAt: "2026-01-15T08:30:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/resend-email-verification:
+    post:
+      tags:
+        - Authentication
+      summary: Resend email verification link
+      description: >
+        **Purpose**: Re-generates and sends a new email verification link to the authenticated user's email address.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: Updates verification token and expiration in database and sends email.<br>
+        **Expected Behavior**: Returns HTTP 200. Throws HTTP 400 if user email is already verified.
+      operationId: resendVerificationEmail
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Email verification link dispatched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Verification email sent successfully
+                data: {}
+        "400":
+          description: User email is already verified.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                statusCode: 400
+                success: false
+                message: Email is already verified
+                errors: []
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change account password
+      description: >
+        **Purpose**: Updates the password for an active authenticated user account.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: Verifies old password, updates hashed password in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200. Throws HTTP 400 if old password is incorrect or new password validation fails.
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        "200":
+          description: Password updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Password changed successfully
+                data: {}
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "422":
+          $ref: '#/components/responses/UnprocessableEntity'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects:
+    get:
+      tags:
+        - Projects
+      summary: List user projects
+      description: >
+        **Purpose**: Retrieves all projects where the authenticated user is a registered member, including total member count and current user role.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with array of project membership objects.
+      operationId: listProjects
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number for paginated results
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of project items returned per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - name: search
+          in: query
+          required: false
+          description: Search term to filter projects by name or description
+          schema:
+            type: string
+          example: FinTech Platform
+        - name: sort
+          in: query
+          required: false
+          description: Sorting field and direction (prefix `-` for descending)
+          schema:
+            type: string
+            default: -createdAt
+          example: -createdAt
+      responses:
+        "200":
+          description: List of projects retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Projects fetched successfully!!!
+                data:
+                  - role: ADMIN
+                    project:
+                      _id: 650c1f1e2f8b9a001c2d3e4f
+                      name: FinTech Platform Modernization
+                      description: Upgrading microservices architecture and implementing OpenAPI documentation.
+                      members: 4
+                      createdBy: 650c1f1e2f8b9a001c2d3e4f
+                      createdAt: "2026-01-10T10:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      description: >
+        **Purpose**: Initializes a new project workspace.<br>
+        **Authorization**: Required (`Bearer JWT`).<br>
+        **Side Effects**: Creates Project document in MongoDB and creates ProjectMember document assigning creator as `ADMIN`.<br>
+        **Expected Behavior**: Returns HTTP 201 with created Project object.
+      operationId: createProject
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        "201":
+          description: Project created and administrator role assigned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: Project created successfully
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e4f
+                  name: Mobile App Development
+                  description: Developing native iOS and Android applications for task management workflow.
+                  createdBy: 650c1f1e2f8b9a001c2d3e4f
+                  createdAt: "2026-01-16T11:20:00.000Z"
+                  updatedAt: "2026-01-16T11:20:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}:
+    get:
+      tags:
+        - Projects
+      summary: Get project by ID
+      description: >
+        **Purpose**: Fetches detailed metadata for a specific project.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with Project object. Throws HTTP 403 if user is not a project member.
+      operationId: getProjectById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the target project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      responses:
+        "200":
+          description: Project details fetched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Project fetched successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e4f
+                  name: FinTech Platform Modernization
+                  description: Upgrading microservices architecture and implementing OpenAPI documentation.
+                  createdBy: 650c1f1e2f8b9a001c2d3e4f
+                  createdAt: "2026-01-10T10:00:00.000Z"
+                  updatedAt: "2026-01-10T10:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Projects
+      summary: Update project details
+      description: >
+        **Purpose**: Updates name or description of an existing project.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` only.<br>
+        **Side Effects**: Updates Project document in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with updated Project details.
+      operationId: updateProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        "200":
+          description: Project updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Project details updated successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e4f
+                  name: FinTech Platform & Mobile Modernization
+                  description: Upgrading microservices architecture, implementing OpenAPI specs, and launching iOS app.
+                  createdBy: 650c1f1e2f8b9a001c2d3e4f
+                  createdAt: "2026-01-10T10:00:00.000Z"
+                  updatedAt: "2026-01-16T14:00:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project
+      description: >
+        **Purpose**: Permanently deletes a project workspace and all child entities.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` only.<br>
+        **Side Effects**: Cascade deletes Project, ProjectMember, Task, SubTask, and Note records from MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 acknowledging project deletion.
+      operationId: deleteProject
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      responses:
+        "200":
+          description: Project and associated resources cascade deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Project deleted successfully!!!
+                data: null
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}/members:
+    get:
+      tags:
+        - Projects
+      summary: Get project members
+      description: >
+        **Purpose**: Retrieves list of members and assigned roles in a project workspace.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with populated member list containing user details (username, email, avatar).
+      operationId: getProjectMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      responses:
+        "200":
+          description: Project members list retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Project members fetched successfully
+                data:
+                  - _id: 650c1f1e2f8b9a001c2d3e50
+                    user:
+                      _id: 650c1f1e2f8b9a001c2d3e4f
+                      username: alex_rivera
+                      email: alex.rivera@taskflow.dev
+                      avatar:
+                        url: https://placehold.co/200?text=No+Image
+                    project: 650c1f1e2f8b9a001c2d3e4f
+                    role: ADMIN
+                  - _id: 650c1f1e2f8b9a001c2d3e51
+                    user:
+                      _id: 650c1f1e2f8b9a001c2d3e99
+                      username: sam_dev
+                      email: sam.dev@taskflow.dev
+                      avatar:
+                        url: https://placehold.co/200?text=No+Image
+                    project: 650c1f1e2f8b9a001c2d3e4f
+                    role: MEMBER
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Projects
+      summary: Add member to project
+      description: >
+        **Purpose**: Invites and adds a registered user to the project workspace.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` and `PROJECT_ADMIN`.<br>
+        **Side Effects**: Creates ProjectMember record and dispatches email notification with project access link.<br>
+        **Expected Behavior**: Returns HTTP 201 with created ProjectMember object. Throws HTTP 409 if user is already a member.
+      operationId: addProjectMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the target project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddProjectMemberRequest'
+      responses:
+        "201":
+          description: User added to project and notification email sent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: Member added successfully
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e51
+                  user: 650c1f1e2f8b9a001c2d3e99
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  role: MEMBER
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /projects/{projectId}/members/{userId}:
+    put:
+      tags:
+        - Projects
+      summary: Update project member role
+      description: >
+        **Purpose**: Updates the role permissions (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`) of an existing team member.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to project `ADMIN` only.<br>
+        **Side Effects**: Updates `role` on ProjectMember document in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with updated ProjectMember object.
+      operationId: updateMemberRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: userId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the user member
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e99
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRoleRequest'
+      responses:
+        "200":
+          description: Member role updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Role updated succesfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e51
+                  user: 650c1f1e2f8b9a001c2d3e99
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  role: PROJECT_ADMIN
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Projects
+      summary: Remove member from project
+      description: >
+        **Purpose**: Removes a user from a project workspace.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Deletes ProjectMember record from MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with removed ProjectMember details.
+      operationId: removeProjectMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: userId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the user member to remove
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e99
+      responses:
+        "200":
+          description: Member removed from project.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Member removed successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e51
+                  user: 650c1f1e2f8b9a001c2d3e99
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  role: MEMBER
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{projectId}:
+    get:
+      tags:
+        - Tasks
+      summary: List tasks for a project
+      description: >
+        **Purpose**: Retrieves all tasks belonging to a specified project workspace with populated assignee and assigner details.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with list of task objects. Supports filtering by status, search, and pagination.
+      operationId: listTasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: status
+          in: query
+          required: false
+          description: Filter tasks by completion status
+          schema:
+            type: string
+            enum: [TODO, IN_PROGRESS, COMPLETED]
+          example: IN_PROGRESS
+        - name: search
+          in: query
+          required: false
+          description: Filter tasks by matching title or description keyword
+          schema:
+            type: string
+          example: JWT Audit
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of tasks per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - name: sort
+          in: query
+          required: false
+          description: Sorting field (e.g., -createdAt)
+          schema:
+            type: string
+            default: -createdAt
+          example: -createdAt
+      responses:
+        "200":
+          description: Project tasks fetched successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: All tasks related to project fetched successfully!!!
+                data:
+                  - _id: 650c1f1e2f8b9a001c2d3e88
+                    title: Perform Security Audit of JWT Authentication
+                    description: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+                    project: 650c1f1e2f8b9a001c2d3e4f
+                    assignedTo:
+                      _id: 650c1f1e2f8b9a001c2d3e4f
+                      username: alex_rivera
+                      email: alex.rivera@taskflow.dev
+                    assignedBy:
+                      _id: 650c1f1e2f8b9a001c2d3e4f
+                      username: alex_rivera
+                    status: IN_PROGRESS
+                    attachments:
+                      - url: http://localhost:3000/images/security_audit_spec.pdf
+                        mimeType: application/pdf
+                        size: 1048576
+                    createdAt: "2026-01-16T12:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Tasks
+      summary: Create a task with optional file attachments
+      description: >
+        **Purpose**: Creates a new task in a project assigned to a project member, with optional file upload attachments (up to 5 files).<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Saves file attachments to storage and creates Task record in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 201 with created Task object. Throws HTTP 400 if assigned user is not a project member.
+      operationId: createTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateTaskMultipartRequest'
+      responses:
+        "201":
+          description: Task created with uploaded attachments.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: Task created successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e88
+                  title: Perform Security Audit of JWT Authentication
+                  description: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  assignedTo: 650c1f1e2f8b9a001c2d3e4f
+                  assignedBy: 650c1f1e2f8b9a001c2d3e4f
+                  status: TODO
+                  attachments:
+                    - url: http://localhost:3000/images/security_audit_spec.pdf
+                      mimeType: application/pdf
+                      size: 1048576
+                  createdAt: "2026-01-16T12:00:00.000Z"
+                  updatedAt: "2026-01-16T12:00:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{projectId}/tasks/{taskId}:
+    get:
+      tags:
+        - Tasks
+      summary: Get task details
+      description: >
+        **Purpose**: Fetches complete task details including subtasks list and populated assignee profile.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with aggregated Task object.
+      operationId: getTaskById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: taskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the task
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+      responses:
+        "200":
+          description: Task details retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Task fetched successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e88
+                  title: Perform Security Audit of JWT Authentication
+                  description: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  assignedTo:
+                    _id: 650c1f1e2f8b9a001c2d3e4f
+                    username: alex_rivera
+                    fullName: Alex Rivera
+                    avatar:
+                      url: https://placehold.co/200?text=No+Image
+                  status: IN_PROGRESS
+                  subtasks:
+                    - _id: 650c1f1e2f8b9a001c2d3e90
+                      title: Check token expiration rules
+                      isCompleted: true
+                  attachments: []
+                  createdAt: "2026-01-16T12:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Tasks
+      summary: Update task details
+      description: >
+        **Purpose**: Updates task title, description, status, or assigned user.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Updates Task document in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with updated Task object.
+      operationId: updateTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: taskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the task to update
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        "200":
+          description: Task updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Task details updated successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e88
+                  title: Perform Security Audit of JWT Authentication
+                  description: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+                  status: COMPLETED
+                  assignedTo: 650c1f1e2f8b9a001c2d3e4f
+                  updatedAt: "2026-01-16T15:30:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Tasks
+      summary: Delete a task
+      description: >
+        **Purpose**: Permanently deletes a task and all associated subtasks.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Cascade deletes Task and SubTask records from MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 confirming task deletion.
+      operationId: deleteTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: taskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the task to delete
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+      responses:
+        "200":
+          description: Task deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Task deleted successfully!!!
+                data: null
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{projectId}/tasks/{taskId}/subtasks:
+    post:
+      tags:
+        - Tasks
+      summary: Create a subtask
+      description: >
+        **Purpose**: Creates a new subtask under a parent task.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Creates SubTask record in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 201 with created SubTask object.
+      operationId: createSubTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: taskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the parent task
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubTaskRequest'
+      responses:
+        "201":
+          description: Subtask created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: Subtask created successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e90
+                  title: Check token expiration rules
+                  task: 650c1f1e2f8b9a001c2d3e88
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  assignedBy: 650c1f1e2f8b9a001c2d3e4f
+                  isCompleted: false
+                  createdAt: "2026-01-16T13:00:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /tasks/{projectId}/subtasks/{subTaskId}:
+    put:
+      tags:
+        - Tasks
+      summary: Update subtask status or title
+      description: >
+        **Purpose**: Updates title or completion status (`isCompleted`) of a subtask.<br>
+        **Authorization**: Required (`Bearer JWT`). Available to all project members (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: Updates SubTask document in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with updated SubTask object.
+      operationId: updateSubTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: subTaskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the subtask
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e90
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubTaskRequest'
+      responses:
+        "200":
+          description: Subtask updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: SubTask details updated successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e90
+                  title: Check token expiration rules
+                  isCompleted: true
+                  task: 650c1f1e2f8b9a001c2d3e88
+                  updatedAt: "2026-01-16T14:15:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Tasks
+      summary: Delete a subtask
+      description: >
+        **Purpose**: Removes a subtask from a task.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Deletes SubTask document from MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 confirming subtask deletion.
+      operationId: deleteSubTask
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: subTaskId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the subtask
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e90
+      responses:
+        "200":
+          description: Subtask deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: SubTask deleted successfully!!!
+                data: null
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /notes/{projectId}:
+    get:
+      tags:
+        - Notes
+      summary: List notes for a project
+      description: >
+        **Purpose**: Retrieves all documentation notes created in a project with populated author details.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with array of Note objects.
+      operationId: listNotes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: page
+          in: query
+          required: false
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of notes per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - name: search
+          in: query
+          required: false
+          description: Search term to filter note content
+          schema:
+            type: string
+          example: Architecture
+        - name: sort
+          in: query
+          required: false
+          description: Sorting field (e.g. -createdAt)
+          schema:
+            type: string
+            default: -createdAt
+          example: -createdAt
+      responses:
+        "200":
+          description: Project notes fetched.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Notes fetched successfully!!!
+                data:
+                  - _id: 650c1f1e2f8b9a001c2d3e95
+                    content: Keep OpenAPI schemas synchronized with Mongoose models during every release.
+                    project: 650c1f1e2f8b9a001c2d3e4f
+                    createdBy:
+                      _id: 650c1f1e2f8b9a001c2d3e4f
+                      username: alex_rivera
+                      email: alex.rivera@taskflow.dev
+                      avatar:
+                        url: https://placehold.co/200?text=No+Image
+                    createdAt: "2026-01-16T09:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags:
+        - Notes
+      summary: Create a note in a project
+      description: >
+        **Purpose**: Adds a documentation note to a project workspace.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Saves Note document to MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 201 with created Note object.
+      operationId: createNote
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNoteRequest'
+      responses:
+        "201":
+          description: Note created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 201
+                success: true
+                message: Note created successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e95
+                  content: Keep OpenAPI schemas synchronized with Mongoose models during every release.
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  createdBy: 650c1f1e2f8b9a001c2d3e4f
+                  createdAt: "2026-01-16T09:00:00.000Z"
+                  updatedAt: "2026-01-16T09:00:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /notes/{projectId}/notes/{noteId}:
+    get:
+      tags:
+        - Notes
+      summary: Get note details
+      description: >
+        **Purpose**: Fetches a specific project note by ID.<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Side Effects**: None.<br>
+        **Expected Behavior**: Returns HTTP 200 with populated Note details.
+      operationId: getNoteById
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: noteId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the note
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e95
+      responses:
+        "200":
+          description: Note details retrieved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Note fetched successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e95
+                  content: Keep OpenAPI schemas synchronized with Mongoose models during every release.
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  createdBy:
+                    _id: 650c1f1e2f8b9a001c2d3e4f
+                    username: alex_rivera
+                    email: alex.rivera@taskflow.dev
+                    avatar:
+                      url: https://placehold.co/200?text=No+Image
+                  createdAt: "2026-01-16T09:00:00.000Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags:
+        - Notes
+      summary: Update a note
+      description: >
+        **Purpose**: Updates content of an existing note.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Updates Note document in MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 with updated Note object.
+      operationId: updateNote
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: noteId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the note
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e95
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNoteRequest'
+      responses:
+        "200":
+          description: Note content updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Note updated successfully!!!
+                data:
+                  _id: 650c1f1e2f8b9a001c2d3e95
+                  content: Updated documentation note content with revised architectural decisions.
+                  project: 650c1f1e2f8b9a001c2d3e4f
+                  updatedAt: "2026-01-16T11:00:00.000Z"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags:
+        - Notes
+      summary: Delete a note
+      description: >
+        **Purpose**: Deletes a note from a project.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Side Effects**: Deletes Note document from MongoDB.<br>
+        **Expected Behavior**: Returns HTTP 200 confirming note deletion.
+      operationId: deleteNote
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the project
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+        - name: noteId
+          in: path
+          required: true
+          description: 24-character hex MongoDB ObjectId of the note
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e95
+      responses:
+        "200":
+          description: Note deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                statusCode: 200
+                success: true
+                message: Note deleted successfully!!!
+                data: null
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter valid JWT Access Token obtained from `/api/v1/auth/login`.
+
+  schemas:
+    # --- Entity Schemas ---
+    User:
+      type: object
+      required:
+        - _id
+        - username
+        - email
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Unique MongoDB ObjectId for the user
+        username:
+          type: string
+          minLength: 5
+          maxLength: 40
+          example: alex_rivera
+          description: Unique user handle (lowercase, 5-40 characters)
+        email:
+          type: string
+          format: email
+          example: alex.rivera@taskflow.dev
+          description: Registered email address
+        fullName:
+          type: string
+          minLength: 5
+          example: Alex Rivera
+          description: Full name of the user
+        avatar:
+          type: object
+          properties:
+            url:
+              type: string
+              example: https://placehold.co/200?text=No+Image
+              description: Avatar image URL
+            localPath:
+              type: string
+              example: ""
+              description: Local server file path if uploaded locally
+        isEmailVerified:
+          type: boolean
+          default: false
+          example: true
+          description: Flag indicating if user email has been verified
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-15T08:30:00.000Z"
+
+    Project:
+      type: object
+      required:
+        - _id
+        - name
+        - description
+        - createdBy
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Unique MongoDB ObjectId for the project
+        name:
+          type: string
+          minLength: 5
+          example: FinTech Platform Modernization
+          description: Project title (minimum 5 characters)
+        description:
+          type: string
+          minLength: 20
+          example: Upgrading microservices architecture and implementing OpenAPI documentation.
+          description: Detailed project description (minimum 20 characters)
+        createdBy:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: MongoDB ObjectId of user who created the project
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-10T10:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-10T10:00:00.000Z"
+
+    ProjectMember:
+      type: object
+      required:
+        - _id
+        - user
+        - project
+        - role
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e50
+          description: Unique MongoDB ObjectId for the member relationship
+        user:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: User ID of member
+        project:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Project ID of workspace
+        role:
+          type: string
+          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
+          default: MEMBER
+          example: ADMIN
+          description: Workspace access control role
+
+    Task:
+      type: object
+      required:
+        - _id
+        - title
+        - project
+        - assignedTo
+        - assignedBy
+        - status
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+          description: Unique MongoDB ObjectId for the task
+        title:
+          type: string
+          minLength: 5
+          example: Perform Security Audit of JWT Authentication
+          description: Task title (minimum 5 characters)
+        description:
+          type: string
+          minLength: 20
+          nullable: true
+          example: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+          description: Detailed task description
+        project:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Parent project ID
+        assignedTo:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: User ID assigned to complete the task
+        assignedBy:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: User ID who created/assigned the task
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, COMPLETED]
+          default: TODO
+          example: IN_PROGRESS
+          description: Current lifecycle status of task
+        attachments:
+          type: array
+          description: List of file attachment metadata objects
+          items:
+            type: object
+            required:
+              - url:
+              - mimeType
+              - size
+            properties:
+              url:
+                type: string
+                example: http://localhost:3000/images/security_audit_spec.pdf
+              mimeType:
+                type: string
+                example: application/pdf
+              size:
+                type: integer
+                example: 1048576
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-16T12:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-16T12:00:00.000Z"
+
+    SubTask:
+      type: object
+      required:
+        - _id
+        - title
+        - task
+        - project
+        - assignedBy
+        - isCompleted
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e90
+          description: Unique MongoDB ObjectId for the subtask
+        title:
+          type: string
+          minLength: 5
+          example: Check token expiration rules
+          description: Subtask title (minimum 5 characters)
+        task:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e88
+          description: Parent task ID
+        project:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Parent project ID
+        assignedBy:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: User ID who created the subtask
+        isCompleted:
+          type: boolean
+          default: false
+          example: true
+          description: Subtask completion flag
+
+    Note:
+      type: object
+      required:
+        - _id
+        - content
+        - project
+        - createdBy
+      properties:
+        _id:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e95
+          description: Unique MongoDB ObjectId for the note
+        content:
+          type: string
+          example: Keep OpenAPI schemas synchronized with Mongoose models during every release.
+          description: Documentation note content
+        project:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Parent project ID
+        createdBy:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: User ID of note author
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-01-16T09:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-01-16T09:00:00.000Z"
+
+    # --- Request Body Schemas ---
+    RegisterUserRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 5
+          maxLength: 40
+          example: alex_rivera
+          description: Unique account handle (5-40 characters, lowercase)
+        email:
+          type: string
+          format: email
+          example: alex.rivera@taskflow.dev
+          description: Valid primary email address
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecretPass123!
+          description: User account password (minimum 8 characters)
+
+    LoginUserRequest:
+      type: object
+      required:
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 5
+          example: alex_rivera
+          description: Registered username (lowercase)
+        email:
+          type: string
+          format: email
+          example: alex.rivera@taskflow.dev
+          description: Registered email address
+        password:
+          type: string
+          format: password
+          example: SecretPass123!
+          description: Account password
+
+    ForgotPasswordRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          example: alex.rivera@taskflow.dev
+          description: Registered account email address
+
+    ResetPasswordRequest:
+      type: object
+      required:
+        - newPassword
+        - confirmNewPassword
+      properties:
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: NewSecurePass123!
+          description: New password (minimum 8 characters)
+        confirmNewPassword:
+          type: string
+          format: password
+          example: NewSecurePass123!
+          description: Confirmation matching new password
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - oldPassword
+        - newPassword
+        - confirmNewPassword
+      properties:
+        oldPassword:
+          type: string
+          format: password
+          example: SecretPass123!
+          description: Current account password
+        newPassword:
+          type: string
+          format: password
+          minLength: 8
+          example: NewSecurePass123!
+          description: New password (minimum 8 characters)
+        confirmNewPassword:
+          type: string
+          format: password
+          example: NewSecurePass123!
+          description: Confirmation matching new password
+
+    CreateProjectRequest:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+          minLength: 5
+          example: FinTech Platform Modernization
+          description: Project name (minimum 5 characters)
+        description:
+          type: string
+          minLength: 20
+          example: Upgrading microservices architecture and implementing OpenAPI documentation.
+          description: Detailed project description (minimum 20 characters)
+
+    UpdateProjectRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 5
+          example: FinTech Platform & Mobile Modernization
+          description: Updated project name
+        description:
+          type: string
+          minLength: 20
+          example: Upgrading microservices architecture, implementing OpenAPI specs, and launching iOS app.
+          description: Updated project description
+
+    AddProjectMemberRequest:
+      type: object
+      required:
+        - email
+        - role
+      properties:
+        email:
+          type: string
+          format: email
+          example: sam.dev@taskflow.dev
+          description: Registered user email to invite
+        role:
+          type: string
+          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
+          example: MEMBER
+          description: Project permission role assigned to invited member
+
+    UpdateMemberRoleRequest:
+      type: object
+      required:
+        - newRole
+      properties:
+        newRole:
+          type: string
+          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
+          example: PROJECT_ADMIN
+          description: Updated role permission for team member
+
+    CreateTaskMultipartRequest:
+      type: object
+      required:
+        - title
+        - assignedTo
+      properties:
+        title:
+          type: string
+          minLength: 5
+          example: Perform Security Audit of JWT Authentication
+          description: Task title (minimum 5 characters)
+        description:
+          type: string
+          minLength: 20
+          nullable: true
+          example: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+          description: Detailed task description (minimum 20 characters)
+        assignedTo:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: MongoDB ObjectId of the project member assigned to task
+        attachments:
+          type: array
+          description: Optional binary attachment files (up to 5 files)
+          items:
+            type: string
+            format: binary
+
+    UpdateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          example: Perform Security Audit of JWT Authentication
+          description: Updated title
+        description:
+          type: string
+          minLength: 20
+          example: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
+          description: Updated description
+        status:
+          type: string
+          enum: [TODO, IN_PROGRESS, COMPLETED]
+          example: COMPLETED
+          description: Updated task status
+        assignedTo:
+          type: string
+          pattern: '^[0-9a-fA-F]{24}$'
+          example: 650c1f1e2f8b9a001c2d3e4f
+          description: Reassigned user ID
+
+    CreateSubTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 5
+          example: Check token expiration rules
+          description: Subtask title (minimum 5 characters)
+
+    UpdateSubTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          example: Check token expiration rules
+          description: Updated subtask title
+        isCompleted:
+          type: boolean
+          example: true
+          description: Subtask completion status
+
+    CreateNoteRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: Keep OpenAPI schemas synchronized with Mongoose models during every release.
+          description: Documentation note content
+
+    UpdateNoteRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          example: Updated documentation note content with revised architectural decisions.
+          description: Updated note content
+
+    # --- System Response Schemas ---
+    ErrorResponse:
+      type: object
+      required:
+        - statusCode
+        - success
+        - message
+        - errors
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+          description: HTTP response status code
+        success:
+          type: boolean
+          example: false
+          description: Success flag (false for errors)
+        message:
+          type: string
+          example: Request failed due to invalid input validation.
+          description: Error message summary
+        errors:
+          type: array
+          description: Array of detailed validation error objects or strings
+          items:
+            type: object
+          example:
+            - field: email
+              message: Invalid email format
+        stack:
+          type: string
+          nullable: true
+          example: "Error: Bad Request at..."
+          description: Stack trace snippet (only populated in development environment)
+
+    SuccessResponse:
+      type: object
+      required:
+        - statusCode
+        - success
+        - message
+        - data
+      properties:
+        statusCode:
+          type: integer
+          example: 200
+          description: HTTP response status code
+        success:
+          type: boolean
+          example: true
+          description: Success flag (true for successful responses)
+        message:
+          type: string
+          example: Operation completed successfully
+          description: Success message summary
+        data:
+          type: object
+          nullable: true
+          description: Response data payload
+
+    Pagination:
+      type: object
+      required:
+        - page
+        - limit
+        - totalDocs
+        - totalPages
+        - hasNextPage
+        - hasPrevPage
+      properties:
+        page:
+          type: integer
+          example: 1
+          description: Current page number
+        limit:
+          type: integer
+          example: 10
+          description: Items limit per page
+        totalDocs:
+          type: integer
+          example: 45
+          description: Total matching document count
+        totalPages:
+          type: integer
+          example: 5
+          description: Total pages count
+        hasNextPage:
+          type: boolean
+          example: true
+          description: True if subsequent page exists
+        hasPrevPage:
+          type: boolean
+          example: false
+          description: True if preceding page exists
+
+  # --- Reusable HTTP System Responses ---
+  responses:
+    Unauthorized:
+      description: Unauthorized - JWT Access Token is missing, invalid, or expired.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 401
+            success: false
+            message: Unauthorized request or invalid JWT token
+            errors: []
+
+    Forbidden:
+      description: Forbidden - Insufficient role permissions to access this endpoint or project workspace.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 403
+            success: false
+            message: You do not have permission to perform this action
+            errors: []
+
+    NotFound:
+      description: Not Found - The requested resource (user, project, task, subtask, note) does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 404
+            success: false
+            message: Resource not found
+            errors: []
+
+    Conflict:
+      description: Conflict - Operation conflicts with existing state (e.g. duplicate username, email, or existing project member).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 409
+            success: false
+            message: User with this email or username already exists
+            errors: []
+
+    UnprocessableEntity:
+      description: Unprocessable Entity - Request validation failed or parameters do not meet requirements.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 422
+            success: false
+            message: Validation failed for request fields
+            errors:
+              - field: confirmNewPassword
+                message: Passwords do not match
+
+    InternalServerError:
+      description: Internal Server Error - An unexpected server error occurred.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 500
+            success: false
+            message: Internal Server Error
+            errors: []
+
+    ValidationError:
+      description: Validation Error - Input parameters or payload failed express-validator rules.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 400
+            success: false
+            message: Validation Error
+            errors:
+              - field: email
+                message: Invalid email format

@@ -24,6 +24,10 @@ import authRouter from "./routes/auth.route.js";
 import projectRouter from "./routes/project.route.js"
 import taskRouter from "./routes/task.route.js"
 import noteRouter from "./routes/note.route.js";
+import { swaggerUi, swaggerDocument } from "./config/swagger.js";
+
+// Swagger API Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/healthcheck", healthCheckRouter);
