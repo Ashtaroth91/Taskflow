@@ -1,9 +1,13 @@
 import dotenv from "dotenv";
-import app from "./app.js";
-import connectDB from "./db/db.js";
 dotenv.config({
     path: "./.env"
 });
+
+// Load application modules only after environment variables are available.
+const [{ default: app }, { default: connectDB }] = await Promise.all([
+    import("./app.js"),
+    import("./db/db.js"),
+]);
 
 const port = process.env.PORT || 3000;
 

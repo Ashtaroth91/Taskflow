@@ -3,3 +3,5 @@ node_modules
 .prettierrc
 .prettierignore
 PRD.md
+PRD_Frontend.md
+FRONTEND_API_CONTRACT.md

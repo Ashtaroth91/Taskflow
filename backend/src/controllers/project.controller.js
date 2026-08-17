@@ -13,21 +13,7 @@ import {
 } from "../utils/mail.js";
 import mongoose from "mongoose";
 import { AvailableUserRoles, UserRolesEnum } from "../utils/constants.js";
-
-const getFrontendUrl = (req) => {
-    const origin = req.get("origin");
-    if (origin) return origin;
-    const referer = req.get("referer");
-    if (referer) {
-        try {
-            const parsed = new URL(referer);
-            return parsed.origin;
-        } catch (e) {
-            // ignore
-        }
-    }
-    return process.env.CORS_ORIGIN?.split(",")[0] || "http://localhost:5173";
-};
+import { configuredFrontendUrl } from "../utils/frontend-url.js";
 
 const getProjectbyId = asyncHandler(async (req, res) => {
     const { projectId } = req.params;
@@ -214,7 +200,7 @@ const addProjectMembers = asyncHandler(async (req, res) => {
         project: projectId,
         role,
     });
-    const frontendUrl = getFrontendUrl(req);
+    const frontendUrl = configuredFrontendUrl();
     await sendEmail({
         mail: user?.email,
         subject: `Added to ${project.name}`,

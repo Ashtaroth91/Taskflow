@@ -3,8 +3,9 @@ info:
   title: TaskFlow API Documentation
   version: 1.0.0
   description: >
-    Production-grade RESTful API specification for TaskFlow, a collaborative project management and workflow platform.
-    Features JWT authentication, role-based access control (RBAC), multi-member project workspaces, task tracking with subtasks and file attachments, and note documentation.
+    REST API for the TaskFlow student project. All successful API responses use
+    `{ statusCode, success, message, data }`; errors use
+    `{ statusCode, success, message, errors }`.
 servers:
   - url: http://localhost:3000/api/v1
     description: Local Development Server
@@ -30,7 +31,7 @@ paths:
         - Health Check
       summary: Check service health status
       description: >
-        **Purpose**: Performs an operational health check on the API service to verify server status and database connectivity.<br>
+        **Purpose**: Confirms that the API process is responding. It does not query database readiness.<br>
         **Authorization**: Public (No authentication required).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP status 200 with JSON payload `{ status: "OK" }`.
@@ -80,16 +81,11 @@ paths:
                 success: true
                 message: User registered successfully. Please check your email to verify your account.
                 data:
-                  _id: 650c1f1e2f8b9a001c2d3e4f
-                  username: alex_rivera
-                  email: alex.rivera@taskflow.dev
-                  fullName: Alex Rivera
-                  isEmailVerified: false
-                  avatar:
-                    url: https://placehold.co/200?text=No+Image
-                    localPath: ""
-                  createdAt: "2026-01-15T08:30:00.000Z"
-                  updatedAt: "2026-01-15T08:30:00.000Z"
+                  user:
+                    _id: 650c1f1e2f8b9a001c2d3e4f
+                    username: alex_rivera
+                    email: alex.rivera@taskflow.dev
+                    isEmailVerified: false
         "400":
           $ref: '#/components/responses/ValidationError'
         "409":
@@ -107,8 +103,8 @@ paths:
       description: >
         **Purpose**: Authenticates a user using email or username along with their password.<br>
         **Authorization**: Public (No authentication required).<br>
-        **Side Effects**: Saves hashed refresh token to user document in database and sets HTTP-Only `refreshToken` cookie.<br>
-        **Expected Behavior**: Returns HTTP 200 with User profile object, JWT Access Token, and Refresh Token.
+        **Side Effects**: Saves the refresh token in MongoDB and sets HTTP-only `accessToken` and `refreshToken` cookies. In local development they are sent without the `Secure` flag; production uses secure, strict cookies.<br>
+        **Expected Behavior**: Returns HTTP 200 with a user profile and access token. The refresh token is never returned in JSON.
       operationId: loginUser
       requestBody:
         required: true
@@ -138,7 +134,6 @@ paths:
                       url: https://placehold.co/200?text=No+Image
                       localPath: ""
                   accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NTBjMWYxZTJmOGI5YTAwMWMyZDNlNGYiLCJ1c2VybmFtZSI6ImFsZXhfcml2ZXJhIiwiZW1haWwiOiJhbGV4LnJpdmVyYUB0YXNrZmxvdy5kZXYiLCJpYXQiOjE3Njg0NjYwMDAsImV4cCI6MTc2ODU1MjQwMH0.signature
-                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NTBjMWYxZTJmOGI5YTAwMWMyZDNlNGYiLCJpYXQiOjE3Njg0NjYwMDAsImV4cCI6MTc2OTA3MDgwMH0.signature
         "400":
           $ref: '#/components/responses/ValidationError'
         "401":
@@ -163,7 +158,7 @@ paths:
         - name: verificationToken
           in: path
           required: true
-          description: SHA-256 unhashed token received via verification email link
+          description: Opaque temporary token received in the frontend verification link
           schema:
             type: string
           example: 4a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
@@ -178,7 +173,9 @@ paths:
                 statusCode: 200
                 success: true
                 message: Email verified successfully
-                data: {}
+                data:
+                  user:
+                    isEmailVerified: true
         "400":
           $ref: '#/components/responses/ValidationError'
         "500":
@@ -190,10 +187,10 @@ paths:
         - Authentication
       summary: Refresh access and refresh tokens
       description: >
-        **Purpose**: Issues a fresh JWT Access Token and Refresh Token pair using an active Refresh Token.<br>
+        **Purpose**: Issues a fresh JWT Access Token and rotates the Refresh Token using an active Refresh Token.<br>
         **Authorization**: Public (Accepts Refresh Token via cookie or request body).<br>
         **Side Effects**: Updates `refreshToken` field in MongoDB user document and resets cookie.<br>
-        **Expected Behavior**: Returns HTTP 200 with new Access Token and Refresh Token.
+        **Expected Behavior**: Returns HTTP 200 with a new Access Token; the rotated Refresh Token is set only as an HTTP-only cookie.
       operationId: refreshAccessToken
       requestBody:
         required: false
@@ -216,10 +213,9 @@ paths:
               example:
                 statusCode: 200
                 success: true
-                message: Access token refreshed successfully
+                message: Access Token refreshed
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
         "401":
           $ref: '#/components/responses/Unauthorized'
         "500":
@@ -234,7 +230,7 @@ paths:
         **Purpose**: Initiates password recovery process for a registered user.<br>
         **Authorization**: Public.<br>
         **Side Effects**: Generates temporary SHA-256 reset token with 20-minute expiration and dispatches email with reset link.<br>
-        **Expected Behavior**: Returns HTTP 200 acknowledging reset request. Throws 404 if email is not registered.
+        **Expected Behavior**: Always returns HTTP 200, regardless of whether the email belongs to an account.
       operationId: forgotPassword
       requestBody:
         required: true
@@ -252,12 +248,10 @@ paths:
               example:
                 statusCode: 200
                 success: true
-                message: Password reset mail sent successfully
-                data: {}
+                message: If an account exists, a reset email has been sent.
+                data: null
         "400":
           $ref: '#/components/responses/ValidationError'
-        "404":
-          $ref: '#/components/responses/NotFound'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -297,7 +291,7 @@ paths:
                 statusCode: 200
                 success: true
                 message: Password reset successfully
-                data: {}
+                data: null
         "400":
           $ref: '#/components/responses/ValidationError'
         "422":
@@ -329,7 +323,7 @@ paths:
                 statusCode: 200
                 success: true
                 message: User logged out successfully
-                data: {}
+                data: null
         "401":
           $ref: '#/components/responses/Unauthorized'
         "500":
@@ -401,7 +395,8 @@ paths:
                 statusCode: 200
                 success: true
                 message: Verification email sent successfully
-                data: {}
+                data:
+                  email: alex.rivera@taskflow.dev
         "400":
           description: User email is already verified.
           content:
@@ -448,7 +443,7 @@ paths:
                 statusCode: 200
                 success: true
                 message: Password changed successfully
-                data: {}
+                data: null
         "400":
           $ref: '#/components/responses/ValidationError'
         "401":
@@ -471,41 +466,6 @@ paths:
       operationId: listProjects
       security:
         - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          required: false
-          description: Page number for paginated results
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
-        - name: limit
-          in: query
-          required: false
-          description: Number of project items returned per page
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-          example: 10
-        - name: search
-          in: query
-          required: false
-          description: Search term to filter projects by name or description
-          schema:
-            type: string
-          example: FinTech Platform
-        - name: sort
-          in: query
-          required: false
-          description: Sorting field and direction (prefix `-` for descending)
-          schema:
-            type: string
-            default: -createdAt
-          example: -createdAt
       responses:
         "200":
           description: List of projects retrieved successfully.
@@ -518,7 +478,7 @@ paths:
                 success: true
                 message: Projects fetched successfully!!!
                 data:
-                  - role: ADMIN
+                  - role: admin
                     project:
                       _id: 650c1f1e2f8b9a001c2d3e4f
                       name: FinTech Platform Modernization
@@ -538,7 +498,7 @@ paths:
       description: >
         **Purpose**: Initializes a new project workspace.<br>
         **Authorization**: Required (`Bearer JWT`).<br>
-        **Side Effects**: Creates Project document in MongoDB and creates ProjectMember document assigning creator as `ADMIN`.<br>
+        **Side Effects**: Creates Project document in MongoDB and creates ProjectMember document assigning creator as `admin`.<br>
         **Expected Behavior**: Returns HTTP 201 with created Project object.
       operationId: createProject
       security:
@@ -581,7 +541,7 @@ paths:
       summary: Get project by ID
       description: >
         **Purpose**: Fetches detailed metadata for a specific project.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP 200 with Project object. Throws HTTP 403 if user is not a project member.
       operationId: getProjectById
@@ -629,7 +589,7 @@ paths:
       summary: Update project details
       description: >
         **Purpose**: Updates name or description of an existing project.<br>
-        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` only.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `admin` only.<br>
         **Side Effects**: Updates Project document in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with updated Project details.
       operationId: updateProject
@@ -685,7 +645,7 @@ paths:
       summary: Delete a project
       description: >
         **Purpose**: Permanently deletes a project workspace and all child entities.<br>
-        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` only.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `admin` only.<br>
         **Side Effects**: Cascade deletes Project, ProjectMember, Task, SubTask, and Note records from MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 acknowledging project deletion.
       operationId: deleteProject
@@ -728,7 +688,7 @@ paths:
       summary: Get project members
       description: >
         **Purpose**: Retrieves list of members and assigned roles in a project workspace.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP 200 with populated member list containing user details (username, email, avatar).
       operationId: getProjectMembers
@@ -763,7 +723,7 @@ paths:
                       avatar:
                         url: https://placehold.co/200?text=No+Image
                     project: 650c1f1e2f8b9a001c2d3e4f
-                    role: ADMIN
+                    role: admin
                   - _id: 650c1f1e2f8b9a001c2d3e51
                     user:
                       _id: 650c1f1e2f8b9a001c2d3e99
@@ -772,7 +732,7 @@ paths:
                       avatar:
                         url: https://placehold.co/200?text=No+Image
                     project: 650c1f1e2f8b9a001c2d3e4f
-                    role: MEMBER
+                    role: member
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -788,7 +748,7 @@ paths:
       summary: Add member to project
       description: >
         **Purpose**: Invites and adds a registered user to the project workspace.<br>
-        **Authorization**: Required (`Bearer JWT`). Role restricted to `ADMIN` and `PROJECT_ADMIN`.<br>
+        **Authorization**: Required (`Bearer JWT`). Role restricted to `admin` and `project_admin`.<br>
         **Side Effects**: Creates ProjectMember record and dispatches email notification with project access link.<br>
         **Expected Behavior**: Returns HTTP 201 with created ProjectMember object. Throws HTTP 409 if user is already a member.
       operationId: addProjectMember
@@ -824,7 +784,7 @@ paths:
                   _id: 650c1f1e2f8b9a001c2d3e51
                   user: 650c1f1e2f8b9a001c2d3e99
                   project: 650c1f1e2f8b9a001c2d3e4f
-                  role: MEMBER
+                  role: member
         "400":
           $ref: '#/components/responses/ValidationError'
         "401":
@@ -844,8 +804,8 @@ paths:
         - Projects
       summary: Update project member role
       description: >
-        **Purpose**: Updates the role permissions (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`) of an existing team member.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to project `ADMIN` only.<br>
+        **Purpose**: Updates the role permissions (`admin`, `project_admin`, `member`) of an existing team member.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to project `admin` only.<br>
         **Side Effects**: Updates `role` on ProjectMember document in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with updated ProjectMember object.
       operationId: updateMemberRole
@@ -889,7 +849,7 @@ paths:
                   _id: 650c1f1e2f8b9a001c2d3e51
                   user: 650c1f1e2f8b9a001c2d3e99
                   project: 650c1f1e2f8b9a001c2d3e4f
-                  role: PROJECT_ADMIN
+                  role: project_admin
         "400":
           $ref: '#/components/responses/ValidationError'
         "401":
@@ -907,7 +867,7 @@ paths:
       summary: Remove member from project
       description: >
         **Purpose**: Removes a user from a project workspace.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Deletes ProjectMember record from MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with removed ProjectMember details.
       operationId: removeProjectMember
@@ -945,7 +905,7 @@ paths:
                   _id: 650c1f1e2f8b9a001c2d3e51
                   user: 650c1f1e2f8b9a001c2d3e99
                   project: 650c1f1e2f8b9a001c2d3e4f
-                  role: MEMBER
+                  role: member
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -962,9 +922,9 @@ paths:
       summary: List tasks for a project
       description: >
         **Purpose**: Retrieves all tasks belonging to a specified project workspace with populated assignee and assigner details.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
-        **Expected Behavior**: Returns HTTP 200 with list of task objects. Supports filtering by status, search, and pagination.
+        **Expected Behavior**: Returns HTTP 200 with all task objects in the project.
       operationId: listTasks
       security:
         - bearerAuth: []
@@ -977,48 +937,6 @@ paths:
             type: string
             pattern: '^[0-9a-fA-F]{24}$'
           example: 650c1f1e2f8b9a001c2d3e4f
-        - name: status
-          in: query
-          required: false
-          description: Filter tasks by completion status
-          schema:
-            type: string
-            enum: [TODO, IN_PROGRESS, COMPLETED]
-          example: IN_PROGRESS
-        - name: search
-          in: query
-          required: false
-          description: Filter tasks by matching title or description keyword
-          schema:
-            type: string
-          example: JWT Audit
-        - name: page
-          in: query
-          required: false
-          description: Page number for pagination
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
-        - name: limit
-          in: query
-          required: false
-          description: Number of tasks per page
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-          example: 10
-        - name: sort
-          in: query
-          required: false
-          description: Sorting field (e.g., -createdAt)
-          schema:
-            type: string
-            default: -createdAt
-          example: -createdAt
       responses:
         "200":
           description: Project tasks fetched successfully.
@@ -1042,7 +960,7 @@ paths:
                     assignedBy:
                       _id: 650c1f1e2f8b9a001c2d3e4f
                       username: alex_rivera
-                    status: IN_PROGRESS
+                    status: in_progress
                     attachments:
                       - url: http://localhost:3000/images/security_audit_spec.pdf
                         mimeType: application/pdf
@@ -1063,7 +981,7 @@ paths:
       summary: Create a task with optional file attachments
       description: >
         **Purpose**: Creates a new task in a project assigned to a project member, with optional file upload attachments (up to 5 files).<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Saves file attachments to storage and creates Task record in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 201 with created Task object. Throws HTTP 400 if assigned user is not a project member.
       operationId: createTask
@@ -1102,7 +1020,7 @@ paths:
                   project: 650c1f1e2f8b9a001c2d3e4f
                   assignedTo: 650c1f1e2f8b9a001c2d3e4f
                   assignedBy: 650c1f1e2f8b9a001c2d3e4f
-                  status: TODO
+                  status: todo
                   attachments:
                     - url: http://localhost:3000/images/security_audit_spec.pdf
                       mimeType: application/pdf
@@ -1127,7 +1045,7 @@ paths:
       summary: Get task details
       description: >
         **Purpose**: Fetches complete task details including subtasks list and populated assignee profile.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP 200 with aggregated Task object.
       operationId: getTaskById
@@ -1172,7 +1090,7 @@ paths:
                     fullName: Alex Rivera
                     avatar:
                       url: https://placehold.co/200?text=No+Image
-                  status: IN_PROGRESS
+                  status: in_progress
                   subtasks:
                     - _id: 650c1f1e2f8b9a001c2d3e90
                       title: Check token expiration rules
@@ -1194,7 +1112,7 @@ paths:
       summary: Update task details
       description: >
         **Purpose**: Updates task title, description, status, or assigned user.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Updates Task document in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with updated Task object.
       operationId: updateTask
@@ -1238,7 +1156,7 @@ paths:
                   _id: 650c1f1e2f8b9a001c2d3e88
                   title: Perform Security Audit of JWT Authentication
                   description: Perform comprehensive security audit of JWT token issuance, verification middleware, and cookie storage settings.
-                  status: COMPLETED
+                  status: done
                   assignedTo: 650c1f1e2f8b9a001c2d3e4f
                   updatedAt: "2026-01-16T15:30:00.000Z"
         "400":
@@ -1258,7 +1176,7 @@ paths:
       summary: Delete a task
       description: >
         **Purpose**: Permanently deletes a task and all associated subtasks.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Cascade deletes Task and SubTask records from MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 confirming task deletion.
       operationId: deleteTask
@@ -1309,7 +1227,7 @@ paths:
       summary: Create a subtask
       description: >
         **Purpose**: Creates a new subtask under a parent task.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Creates SubTask record in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 201 with created SubTask object.
       operationId: createSubTask
@@ -1375,7 +1293,7 @@ paths:
       summary: Update subtask status or title
       description: >
         **Purpose**: Updates title or completion status (`isCompleted`) of a subtask.<br>
-        **Authorization**: Required (`Bearer JWT`). Available to all project members (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). Available to all project members (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: Updates SubTask document in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with updated SubTask object.
       operationId: updateSubTask
@@ -1438,7 +1356,7 @@ paths:
       summary: Delete a subtask
       description: >
         **Purpose**: Removes a subtask from a task.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Deletes SubTask document from MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 confirming subtask deletion.
       operationId: deleteSubTask
@@ -1489,7 +1407,7 @@ paths:
       summary: List notes for a project
       description: >
         **Purpose**: Retrieves all documentation notes created in a project with populated author details.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP 200 with array of Note objects.
       operationId: listNotes
@@ -1504,40 +1422,6 @@ paths:
             type: string
             pattern: '^[0-9a-fA-F]{24}$'
           example: 650c1f1e2f8b9a001c2d3e4f
-        - name: page
-          in: query
-          required: false
-          description: Page number for pagination
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
-        - name: limit
-          in: query
-          required: false
-          description: Number of notes per page
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 10
-          example: 10
-        - name: search
-          in: query
-          required: false
-          description: Search term to filter note content
-          schema:
-            type: string
-          example: Architecture
-        - name: sort
-          in: query
-          required: false
-          description: Sorting field (e.g. -createdAt)
-          schema:
-            type: string
-            default: -createdAt
-          example: -createdAt
       responses:
         "200":
           description: Project notes fetched.
@@ -1575,7 +1459,7 @@ paths:
       summary: Create a note in a project
       description: >
         **Purpose**: Adds a documentation note to a project workspace.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Saves Note document to MongoDB.<br>
         **Expected Behavior**: Returns HTTP 201 with created Note object.
       operationId: createNote
@@ -1632,7 +1516,7 @@ paths:
       summary: Get note details
       description: >
         **Purpose**: Fetches a specific project note by ID.<br>
-        **Authorization**: Required (`Bearer JWT`). User must be a member (`ADMIN`, `PROJECT_ADMIN`, `MEMBER`).<br>
+        **Authorization**: Required (`Bearer JWT`). User must be a member (`admin`, `project_admin`, `member`).<br>
         **Side Effects**: None.<br>
         **Expected Behavior**: Returns HTTP 200 with populated Note details.
       operationId: getNoteById
@@ -1692,7 +1576,7 @@ paths:
       summary: Update a note
       description: >
         **Purpose**: Updates content of an existing note.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Updates Note document in MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 with updated Note object.
       operationId: updateNote
@@ -1754,7 +1638,7 @@ paths:
       summary: Delete a note
       description: >
         **Purpose**: Deletes a note from a project.<br>
-        **Authorization**: Required (`Bearer JWT`). Restricted to `ADMIN` and `PROJECT_ADMIN` roles.<br>
+        **Authorization**: Required (`Bearer JWT`). Restricted to `admin` and `project_admin` roles.<br>
         **Side Effects**: Deletes Note document from MongoDB.<br>
         **Expected Behavior**: Returns HTTP 200 confirming note deletion.
       operationId: deleteNote
@@ -1923,9 +1807,9 @@ components:
           description: Project ID of workspace
         role:
           type: string
-          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
-          default: MEMBER
-          example: ADMIN
+          enum: [admin, project_admin, member]
+          default: member
+          example: admin
           description: Workspace access control role
 
     Task:
@@ -1971,9 +1855,9 @@ components:
           description: User ID who created/assigned the task
         status:
           type: string
-          enum: [TODO, IN_PROGRESS, COMPLETED]
-          default: TODO
-          example: IN_PROGRESS
+          enum: [todo, in_progress, done]
+          default: todo
+          example: in_progress
           description: Current lifecycle status of task
         attachments:
           type: array
@@ -2199,6 +2083,9 @@ components:
 
     UpdateProjectRequest:
       type: object
+      required:
+        - name
+        - description
       properties:
         name:
           type: string
@@ -2224,8 +2111,8 @@ components:
           description: Registered user email to invite
         role:
           type: string
-          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
-          example: MEMBER
+          enum: [admin, project_admin, member]
+          example: member
           description: Project permission role assigned to invited member
 
     UpdateMemberRoleRequest:
@@ -2235,8 +2122,8 @@ components:
       properties:
         newRole:
           type: string
-          enum: [ADMIN, PROJECT_ADMIN, MEMBER]
-          example: PROJECT_ADMIN
+          enum: [admin, project_admin, member]
+          example: project_admin
           description: Updated role permission for team member
 
     CreateTaskMultipartRequest:
@@ -2283,8 +2170,8 @@ components:
           description: Updated description
         status:
           type: string
-          enum: [TODO, IN_PROGRESS, COMPLETED]
-          example: COMPLETED
+          enum: [todo, in_progress, done]
+          example: done
           description: Updated task status
         assignedTo:
           type: string
@@ -2392,9 +2279,8 @@ components:
           example: Operation completed successfully
           description: Success message summary
         data:
-          type: object
           nullable: true
-          description: Response data payload
+          description: Response data payload. Its exact type is documented for every endpoint example and in FRONTEND_API_CONTRACT.md.
 
     Pagination:
       type: object

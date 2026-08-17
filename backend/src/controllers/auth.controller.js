@@ -9,6 +9,13 @@ import {
 } from "../utils/mail.js";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { configuredFrontendUrl } from "../utils/frontend-url.js";
+
+const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+};
 
 const getAccessAndRefreshTokens = async (userId) => {
     try {
@@ -24,21 +31,6 @@ const getAccessAndRefreshTokens = async (userId) => {
     } catch (error) {
         throw new ApiError(500, "Failed to generate tokens", [error.message]);
     }
-};
-
-const getFrontendUrl = (req) => {
-    const origin = req.get("origin");
-    if (origin) return origin;
-    const referer = req.get("referer");
-    if (referer) {
-        try {
-            const parsed = new URL(referer);
-            return parsed.origin;
-        } catch (e) {
-            // ignore
-        }
-    }
-    return process.env.CORS_ORIGIN?.split(",")[0] || "http://localhost:5173";
 };
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -65,7 +57,7 @@ const registerUser = asyncHandler(async (req, res) => {
     user.emailVerificationTokenExpiry = tokenExpiry;
     await user.save({ validateBeforeSave: false });
 
-    const frontendUrl = getFrontendUrl(req);
+    const frontendUrl = configuredFrontendUrl();
     await sendEmail({
         mail: user?.email,
         subject: "Verify your email for TaskFlow",
@@ -119,12 +111,6 @@ const loginUser = asyncHandler(async (req, res) => {
         "-password -refreshToken -emailVerificationToken -emailVerificationTokenExpiry",
     );
 
-    const cookieOptions = {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-    };
-
     return res
         .status(200)
         .cookie("accessToken", accessToken, cookieOptions)
@@ -153,11 +139,6 @@ const logoutUser = asyncHandler(async (req, res) => {
             returnDocument: "after",
         },
     );
-    const cookieOptions = {
-        httpOnly: true,
-        secure: true,
-        sameSite: "strict",
-    };
     return res
         .status(200)
         .clearCookie("accessToken", cookieOptions)
@@ -227,7 +208,7 @@ const resendVerificationEmail = asyncHandler(async (req, res) => {
         subject: "Verify your email for TaskFlow",
         mailgenContent: emailVerificationTemplate(
             user.username,
-            `${req.protocol}://${req.get("host")}/api/v1/auth/verify-email/${unHashedToken}`,
+            `${configuredFrontendUrl()}/verify-email/${unHashedToken}`,
         ),
     });
 
@@ -264,11 +245,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         if (incomingRefreshToken !== user?.refreshToken) {
             throw new ApiError(401, "Refresh Token Expired");
         }
-        const cookieOptions = {
-            httpOnly: true,
-            sameSite: "strict",
-            secure: true,
-        };
         const { accessToken, refreshToken } = await getAccessAndRefreshTokens(
             user?._id,
         );
@@ -319,7 +295,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     user.forgotPasswordTokenExpiry = tokenExpiry;
     await user.save({ validateBeforeSave: false });
 
-    const frontendUrl = getFrontendUrl(req);
+    const frontendUrl = configuredFrontendUrl();
     await sendEmail({
         mail: user?.email,
         subject: "Reset password for your TaskFlow account",

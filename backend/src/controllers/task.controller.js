@@ -159,7 +159,18 @@ const updateTask = asyncHandler(async (req, res) => {
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
     if (status !== undefined) updateData.status = status;
-    if (assignedTo !== undefined) updateData.assignedTo = assignedTo;
+    if (assignedTo !== undefined) {
+        const member = await ProjectMember.findOne({
+            user: assignedTo,
+            project: projectId,
+        });
+
+        if (!member) {
+            throw new ApiError(400, "User is not a member of this project");
+        }
+
+        updateData.assignedTo = assignedTo;
+    }
 
     const task = await Task.findOneAndUpdate(
         {

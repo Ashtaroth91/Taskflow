@@ -3,6 +3,10 @@ import cors from "cors";
 import CookieParser from "cookie-parser";
 
 const app = express();
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 //basic configurations
 app.use(express.json({limit : "16kb"}));
@@ -13,7 +17,7 @@ app.use("/images", express.static("public/images"));
 
 //cors configuration
 app.use(cors({
-    origin : process.env.CORS_ORIGIN?.split(",") || "http://localhost:5173",
+    origin : allowedOrigins,
     methods : ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials : true,
     allowedHeaders : ["Content-Type", "Authorization"]
