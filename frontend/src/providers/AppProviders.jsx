@@ -14,10 +14,11 @@ export function AppProviders({ children }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 1000 * 60 * 5, // 5 minutes
-            gcTime: 1000 * 60 * 15, // 15 minutes cache time
+            staleTime: 0, // Data is fresh upon fetch, re-fetches immediately on navigation/back
+            refetchOnMount: 'always', // Always fetch latest data when navigating to/from pages
+            refetchOnWindowFocus: true,
+            gcTime: 1000 * 60 * 15,
             retry: 1,
-            refetchOnWindowFocus: false,
           },
         },
       })

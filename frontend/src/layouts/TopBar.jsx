@@ -22,7 +22,7 @@ export function TopBar() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects or tasks... (Ctrl+K)"
+            placeholder="Search projects or tasks..."
             className="pl-9 pr-4 h-9 text-xs bg-background/50 focus:bg-background border-border/80 rounded-xl"
           />
         </div>

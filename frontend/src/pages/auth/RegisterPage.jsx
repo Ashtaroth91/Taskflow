@@ -72,15 +72,15 @@ export default function RegisterPage() {
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-bold tracking-tight">Verify Your Email</h2>
+          <h2 className="text-xl font-bold tracking-tight">Account Created!</h2>
           <p className="text-xs text-muted-foreground leading-relaxed">
-            We have sent a verification link to <span className="font-semibold text-foreground">{registeredEmail}</span>. Please check your inbox and click the link to activate your account.
+            Your account <span className="font-semibold text-foreground">{registeredEmail}</span> has been created successfully. You can now sign in immediately.
           </p>
         </div>
 
         <div className="pt-4 border-t border-border space-y-3">
           <Link to={ROUTES.LOGIN}>
-            <Button variant="outline" className="w-full">
+            <Button className="w-full">
               Proceed to Sign In
             </Button>
           </Link>

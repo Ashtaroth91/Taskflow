@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react',
+import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, UserPlus, Shield, Trash2, AlertCircle } from 'lucide-react';
 import { projectsApi } from '../../api/projects.api.js';
