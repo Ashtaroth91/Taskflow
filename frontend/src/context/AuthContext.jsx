@@ -17,18 +17,13 @@ export function AuthProvider({ children }) {
   const checkAuth = useCallback(async () => {
     setIsLoading(true);
     try {
-      // First try to fetch current user (with existing access token or cookie)
+      // The Axios interceptor owns a single refresh-and-retry attempt for a
+      // rejected current-user request. Keeping refresh ownership there avoids
+      // issuing a second refresh request during app startup.
       const currentUser = await authApi.getCurrentUser();
       setUser(currentUser);
     } catch (err) {
-      // If fetching current user fails, try refreshing the access token once
-      try {
-        await authApi.refreshToken();
-        const currentUser = await authApi.getCurrentUser();
-        setUser(currentUser);
-      } catch (refreshErr) {
-        setUser(null);
-      }
+      setUser(null);
     } finally {
       setIsLoading(false);
     }

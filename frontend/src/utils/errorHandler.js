@@ -41,6 +41,14 @@ export function parseApiError(error) {
         const field = err.field || err.param || err.path;
         if (field) {
           fieldErrors[field] = err.message || err.msg || 'Invalid field';
+        } else {
+          // The backend validator returns objects such as
+          // `{ email: "Invalid email format" }`.
+          Object.entries(err).forEach(([key, value]) => {
+            if (typeof value === 'string') {
+              fieldErrors[key] = value;
+            }
+          });
         }
       }
     });

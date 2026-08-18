@@ -36,6 +36,9 @@ export const Button = forwardRef(
     };
 
     return (
+      // `asChild` is intentionally unsupported by this lightweight primitive.
+      // Consumers that navigate should use a Link styled with this component's
+      // class contract instead of nesting anchors inside buttons.
       <button
         ref={ref}
         type={type}

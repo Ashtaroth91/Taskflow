@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import { AuthProvider } from '../context/AuthContext.jsx';
 import { ThemeProvider } from '../context/ThemeContext.jsx';
 import { ErrorBoundary } from '../components/feedback/ErrorBoundary.jsx';
+import { ProjectRoleProvider } from '../context/ProjectRoleContext.jsx';
 
 export function AppProviders({ children }) {
   // Create a stable TanStack Query Client instance
@@ -26,12 +27,14 @@ export function AppProviders({ children }) {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <AuthProvider>
-            <BrowserRouter>
+          <BrowserRouter>
+            <AuthProvider>
+              <ProjectRoleProvider>
               {children}
               <Toaster position="top-right" richColors closeButton />
-            </BrowserRouter>
-          </AuthProvider>
+              </ProjectRoleProvider>
+            </AuthProvider>
+          </BrowserRouter>
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>

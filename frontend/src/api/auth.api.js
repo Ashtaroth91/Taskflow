@@ -44,6 +44,11 @@ export const authApi = {
     return res.data.data;
   },
 
+  async resendVerificationEmail() {
+    const res = await axiosInstance.post(ENDPOINTS.AUTH_RESEND_VERIFICATION);
+    return res.data.data;
+  },
+
   async forgotPassword(data) {
     const res = await axiosInstance.post(ENDPOINTS.AUTH_FORGOT_PASSWORD, data);
     return res.data.data;

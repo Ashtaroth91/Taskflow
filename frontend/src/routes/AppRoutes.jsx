@@ -3,8 +3,20 @@ import { ROUTES } from '../constants/routes.js';
 import { AuthLayout } from '../layouts/AuthLayout.jsx';
 import { AppShell } from '../layouts/AppShell.jsx';
 import { ProtectedRoute } from './ProtectedRoute.jsx';
+import { ProjectRoleRoute } from './ProjectRoleRoute.jsx';
 import { PublicRoute } from './PublicRoute.jsx';
 import { ROLES } from '../constants/roles.js';
+import { LoginPage } from '../pages/auth/LoginPage.jsx';
+import { RegisterPage } from '../pages/auth/RegisterPage.jsx';
+import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage.jsx';
+import { ResetPasswordPage } from '../pages/auth/ResetPasswordPage.jsx';
+import { VerifyEmailPage } from '../pages/auth/VerifyEmailPage.jsx';
+import DashboardPage from '../pages/dashboard/DashboardPage.jsx';
+import ProjectsListPage from '../pages/projects/ProjectsListPage.jsx';
+import ProjectDetailPage from '../pages/projects/ProjectDetailPage.jsx';
+import ProjectMembersPage from '../pages/projects/ProjectMembersPage.jsx';
+import ProjectSettingsPage from '../pages/projects/ProjectSettingsPage.jsx';
+import TasksPage from '../pages/tasks/TasksPage.jsx';
 
 // Architectural Page Shell Placeholders (Pages will be implemented in subsequent phases)
 const ArchitecturePlaceholder = ({ title }) => (
@@ -25,31 +37,31 @@ export function AppRoutes() {
       {/* Public Auth Routes */}
       <Route element={<PublicRoute />}>
         <Route element={<AuthLayout />}>
-          <Route path={ROUTES.LOGIN} element={<ArchitecturePlaceholder title="Login Screen" />} />
-          <Route path={ROUTES.REGISTER} element={<ArchitecturePlaceholder title="Register Screen" />} />
-          <Route path={ROUTES.FORGOT_PASSWORD} element={<ArchitecturePlaceholder title="Forgot Password Screen" />} />
-          <Route path={ROUTES.RESET_PASSWORD} element={<ArchitecturePlaceholder title="Reset Password Screen" />} />
-          <Route path={ROUTES.VERIFY_EMAIL} element={<ArchitecturePlaceholder title="Verify Email Screen" />} />
+          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+          <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
+          <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
+          <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
+          <Route path={ROUTES.VERIFY_EMAIL} element={<VerifyEmailPage />} />
         </Route>
       </Route>
 
       {/* Authenticated Application Routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route path={ROUTES.APP} element={<ArchitecturePlaceholder title="Dashboard Overview" />} />
-          <Route path={ROUTES.PROJECTS} element={<ArchitecturePlaceholder title="Projects List" />} />
-          <Route path={ROUTES.PROJECT_NEW} element={<ArchitecturePlaceholder title="Create Project Modal / Screen" />} />
-          <Route path={ROUTES.PROJECT_DETAIL} element={<ArchitecturePlaceholder title="Project Detail Overview" />} />
-          <Route path={ROUTES.PROJECT_TASKS} element={<ArchitecturePlaceholder title="Project Tasks & Kanban Board" />} />
-          <Route path={ROUTES.TASK_DETAIL} element={<ArchitecturePlaceholder title="Task Detail Drawer / View" />} />
+          <Route path={ROUTES.APP} element={<DashboardPage />} />
+          <Route path={ROUTES.PROJECTS} element={<ProjectsListPage />} />
+          <Route path={ROUTES.PROJECT_NEW} element={<ProjectsListPage />} />
+          <Route path={ROUTES.PROJECT_DETAIL} element={<ProjectDetailPage />} />
+          <Route path={ROUTES.PROJECT_TASKS} element={<TasksPage />} />
+          <Route path={ROUTES.TASK_DETAIL} element={<TasksPage />} />
           <Route path={ROUTES.PROJECT_NOTES} element={<ArchitecturePlaceholder title="Project Notes List" />} />
           <Route path={ROUTES.NOTE_DETAIL} element={<ArchitecturePlaceholder title="Note Detail & Editor View" />} />
-          <Route path={ROUTES.PROJECT_MEMBERS} element={<ArchitecturePlaceholder title="Project Member Management" />} />
+          <Route path={ROUTES.PROJECT_MEMBERS} element={<ProjectMembersPage />} />
           <Route path={ROUTES.ACCOUNT} element={<ArchitecturePlaceholder title="Account & Security Settings" />} />
 
           {/* Admin Protected Route */}
-          <Route element={<ProtectedRoute requiredRole={ROLES.ADMIN} />}>
-            <Route path={ROUTES.PROJECT_SETTINGS} element={<ArchitecturePlaceholder title="Project Admin Settings" />} />
+          <Route element={<ProjectRoleRoute allowedRoles={[ROLES.ADMIN]} />}>
+            <Route path={ROUTES.PROJECT_SETTINGS} element={<ProjectSettingsPage />} />
           </Route>
         </Route>
       </Route>
