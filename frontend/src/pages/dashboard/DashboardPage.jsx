@@ -1,32 +1,36 @@
-import { useQuery } from '@tanstack/react-query';
-import { projectsApi } from '../../api/projects.api.js';
-import { tasksApi } from '../../api/tasks.api.js';
-import { QUERY_KEYS } from '../../constants/queryKeys.js';
-import { TASK_STATUS } from '../../constants/taskStatus.js';
-import { useAuth } from '../../hooks/useAuth.js';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   FolderKanban,
   CheckSquare,
   Users,
-  TrendingUp,
-  PieChart as PieIcon,
-  BarChart2,
+  Plus,
+  ArrowRight,
   Clock,
   CheckCircle2,
-  Plus,
+  CircleDot,
+  Layers,
 } from 'lucide-react';
+import { projectsApi } from '../../api/projects.api.js';
+import { tasksApi } from '../../api/tasks.api.js';
+import { QUERY_KEYS } from '../../constants/queryKeys.js';
+import { TASK_STATUS, TASK_STATUS_LABELS } from '../../constants/taskStatus.js';
+import { useAuth } from '../../hooks/useAuth.js';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card.jsx';
-import { Badge } from '../../components/ui/Badge.jsx';
 import { Button } from '../../components/ui/Button.jsx';
-import { Link } from 'react-router-dom';
-import { ROUTES } from '../../constants/routes.js';
-import { TaskStatusChart } from '../../components/analytics/TaskStatusChart.jsx';
-import { ProjectProgressChart } from '../../components/analytics/ProjectProgressChart.jsx';
+import { TaskStatusBadge, RoleBadge } from '../../components/common/StatusBadge.jsx';
+import { ProjectFormModal } from '../../components/projects/ProjectFormModal.jsx';
 import { RecentActivityTimeline } from '../../components/analytics/RecentActivityTimeline.jsx';
 import { FullPageSpinner } from '../../components/feedback/FullPageSpinner.jsx';
+import { ROUTES } from '../../constants/routes.js';
+import { parseApiError } from '../../utils/errorHandler.js';
+import { showToast } from '../../utils/toast.js';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // 1. Fetch User's Accessible Projects
   const {
@@ -59,189 +63,338 @@ export default function DashboardPage() {
     enabled: projectIds.length > 0,
   });
 
+  // Task Status Update Mutation from Dashboard
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ projectId, taskId, newStatus }) => {
+      return await tasksApi.updateTask(projectId, taskId, { status: newStatus });
+    },
+    onSuccess: () => {
+      showToast.success('Task status updated');
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'all-tasks', projectIds] });
+    },
+    onError: (err) => {
+      const parsed = parseApiError(err);
+      showToast.error(parsed.message);
+    },
+  });
+
   if (isProjectsLoading || (projectIds.length > 0 && tasksQueries.isLoading)) {
-    return <FullPageSpinner message="Loading dashboard..." />;
+    return <FullPageSpinner message="Loading your workspace..." />;
   }
 
-  // Derive Analytics Data
+  // Derive Data
   const tasksByProjectMap = {};
   let allTasks = [];
 
   if (tasksQueries.data) {
     tasksQueries.data.forEach((item) => {
       tasksByProjectMap[item.projectId] = item.tasks;
-      allTasks = [...allTasks, ...item.tasks];
+      // Tag each task with its project name for quick display
+      const projectMatch = projectsData.find((p) => p.project?._id === item.projectId);
+      const taggedTasks = item.tasks.map((t) => ({
+        ...t,
+        projectName: projectMatch?.project?.name || 'Project',
+      }));
+      allTasks = [...allTasks, ...taggedTasks];
     });
   }
 
   const totalProjects = projectsData.length;
   const totalTasks = allTasks.length;
   const completedTasks = allTasks.filter((t) => t.status === TASK_STATUS.DONE).length;
-  const pendingTasks = allTasks.filter(
-    (t) => t.status === TASK_STATUS.TODO || t.status === TASK_STATUS.IN_PROGRESS
-  ).length;
+  const inProgressTasks = allTasks.filter((t) => t.status === TASK_STATUS.IN_PROGRESS).length;
+  const todoTasks = allTasks.filter((t) => t.status === TASK_STATUS.TODO).length;
   const overallProgressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Sum total team members across projects
-  const totalMembers = projectsData.reduce(
-    (acc, curr) => acc + (curr.project?.members || 1),
-    0
+  // Filter tasks assigned to current user
+  const myAssignedTasks = allTasks.filter(
+    (t) => t.assignedTo?._id === user?._id || t.assignedTo?.username === user?.username
   );
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="glass-panel p-6 rounded-2xl border border-border/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+      {/* Workspace Overview Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-border">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Analytics Dashboard
-            </h1>
-            <Badge variant="success" className="text-[10px]">
-              Live Data
-            </Badge>
-          </div>
+          <h1 className="text-xl font-bold tracking-tight text-foreground">
+            Welcome back, {user?.username || 'Student'}
+          </h1>
           <p className="text-xs text-muted-foreground">
-            Overview of project progress and team metrics for {user?.username || 'user'}.
+            You have access to <span className="font-semibold text-foreground">{totalProjects}</span> project{totalProjects === 1 ? '' : 's'} with <span className="font-semibold text-foreground">{myAssignedTasks.length}</span> task{myAssignedTasks.length === 1 ? '' : 's'} assigned to you.
           </p>
         </div>
 
-        <Link to={ROUTES.PROJECTS}>
-          <Button size="sm">
+        <div className="flex items-center gap-2.5">
+          <Link to={ROUTES.PROJECTS}>
+            <Button variant="outline" size="sm">
+              <FolderKanban className="w-4 h-4 mr-1.5 text-muted-foreground" />
+              All Projects
+            </Button>
+          </Link>
+          <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="w-4 h-4 mr-1.5" />
-            Manage Workspaces
+            New Project
           </Button>
-        </Link>
+        </div>
       </div>
 
-      {/* Summary Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {/* Total Projects */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Active Projects Card */}
+        <Card className="border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Total Projects</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">{totalProjects}</p>
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground">Active Workspaces</p>
+              <p className="text-2xl font-bold text-foreground">{totalProjects}</p>
+              <p className="text-[11px] text-muted-foreground">Enrolled projects</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
-              <FolderKanban className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <FolderKanban className="w-4.5 h-4.5" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Total Tasks */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
+        {/* My Assigned Tasks Card */}
+        <Card className="border-border shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Total Tasks</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">{totalTasks}</p>
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-muted-foreground">My Assigned Tasks</p>
+              <p className="text-2xl font-bold text-foreground">{myAssignedTasks.length}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {myAssignedTasks.filter((t) => t.status === TASK_STATUS.DONE).length} completed
+              </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <CheckSquare className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <CheckSquare className="w-4.5 h-4.5" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Completed Tasks */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Completed</p>
-              <p className="text-2xl font-extrabold text-emerald-500 mt-1">{completedTasks}</p>
+        {/* Team Task Completion Card */}
+        <Card className="border-border shadow-sm">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Team Task Progress</p>
+                <p className="text-2xl font-bold text-foreground">{overallProgressPercent}%</p>
+              </div>
+              <div className="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4.5 h-4.5" />
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center">
-              <CheckCircle2 className="w-5 h-5" />
+            {/* Progress Bar */}
+            <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                style={{ width: `${overallProgressPercent}%` }}
+              />
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Pending Tasks */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Pending Tasks</p>
-              <p className="text-2xl font-extrabold text-amber-500 mt-1">{pendingTasks}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Progress Percentage */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Completion Rate</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">{overallProgressPercent}%</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Member Count */}
-        <Card className="border-border/60 shadow-sm hover:shadow transition-all">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] font-semibold text-muted-foreground">Total Members</p>
-              <p className="text-2xl font-extrabold text-foreground mt-1">{totalMembers}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {completedTasks} of {totalTasks} tasks done across all workspaces
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Visualizations Section (Recharts) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Task Status Distribution (Pie / Donut Chart) */}
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <PieIcon className="w-4 h-4 text-primary" />
-              <CardTitle className="text-base">Task Status Breakdown</CardTitle>
-            </div>
-            <CardDescription className="text-xs">Distribution of tasks across To Do, In Progress, and Done</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <TaskStatusChart tasks={allTasks} />
-          </CardContent>
-        </Card>
+      {/* Main Grid: My Tasks & Active Workspaces */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: My Assigned Tasks */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold">My Assigned Tasks</CardTitle>
+                <CardDescription className="text-xs">
+                  Tasks assigned directly to your account
+                </CardDescription>
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">
+                {myAssignedTasks.length} task{myAssignedTasks.length === 1 ? '' : 's'}
+              </span>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2.5">
+              {myAssignedTasks.length === 0 ? (
+                <div className="py-8 text-center space-y-2">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <CheckSquare className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs font-medium text-foreground">You have no assigned tasks right now.</p>
+                  <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                    Check your project boards to find tasks or create new ones for your team.
+                  </p>
+                </div>
+              ) : (
+                myAssignedTasks.map((task) => (
+                  <div
+                    key={task._id}
+                    className="p-3 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to={`/app/projects/${task.project}/tasks`}
+                          className="font-semibold text-foreground hover:text-primary transition-colors truncate"
+                        >
+                          {task.title}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1 font-medium text-foreground/80">
+                          <FolderKanban className="w-3 h-3 text-muted-foreground" />
+                          {task.projectName}
+                        </span>
+                        {task.description && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-[240px]">{task.description}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
 
-        {/* Project Task Completion (Bar Chart) */}
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <BarChart2 className="w-4 h-4 text-primary" />
-              <CardTitle className="text-base">Project Task Comparison</CardTitle>
-            </div>
-            <CardDescription className="text-xs">Total vs Completed Tasks by project workspace</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProjectProgressChart
-              projectsData={projectsData}
-              tasksByProject={tasksByProjectMap}
-            />
-          </CardContent>
-        </Card>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Quick Status Selector */}
+                      <select
+                        value={task.status}
+                        onChange={(e) =>
+                          updateStatusMutation.mutate({
+                            projectId: task.project,
+                            taskId: task._id,
+                            newStatus: e.target.value,
+                          })
+                        }
+                        className="h-7 text-[11px] font-medium bg-background border border-border rounded-md px-2 focus:outline-none focus:ring-1 focus:ring-ring"
+                      >
+                        <option value={TASK_STATUS.TODO}>{TASK_STATUS_LABELS[TASK_STATUS.TODO]}</option>
+                        <option value={TASK_STATUS.IN_PROGRESS}>{TASK_STATUS_LABELS[TASK_STATUS.IN_PROGRESS]}</option>
+                        <option value={TASK_STATUS.DONE}>{TASK_STATUS_LABELS[TASK_STATUS.DONE]}</option>
+                      </select>
+
+                      <Link to={`/app/projects/${task.project}/tasks`}>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+                          Open <ArrowRight className="w-3 h-3 ml-1" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Active Workspaces List */}
+          <Card className="border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold">Project Workspaces</CardTitle>
+                <CardDescription className="text-xs">
+                  Your active team projects and progress
+                </CardDescription>
+              </div>
+              <Link to={ROUTES.PROJECTS}>
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  View All <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {projectsData.length === 0 ? (
+                <div className="py-8 text-center space-y-2">
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <FolderKanban className="w-4 h-4" />
+                  </div>
+                  <p className="text-xs font-medium text-foreground">No projects yet</p>
+                  <Button size="sm" onClick={() => setIsCreateModalOpen(true)}>
+                    Create First Project
+                  </Button>
+                </div>
+              ) : (
+                projectsData.map((item) => {
+                  const p = item.project;
+                  const pTasks = tasksByProjectMap[p?._id] || [];
+                  const pDone = pTasks.filter((t) => t.status === TASK_STATUS.DONE).length;
+                  const pPercent = pTasks.length > 0 ? Math.round((pDone / pTasks.length) * 100) : 0;
+
+                  return (
+                    <div
+                      key={p?._id}
+                      className="p-3.5 rounded-lg border border-border bg-card hover:bg-muted/30 transition-colors space-y-2.5 text-xs"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <Link
+                            to={`/app/projects/${p?._id}`}
+                            className="font-bold text-foreground hover:text-primary transition-colors text-sm"
+                          >
+                            {p?.name}
+                          </Link>
+                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                            {p?.description}
+                          </p>
+                        </div>
+                        <RoleBadge role={item.role} />
+                      </div>
+
+                      {/* Progress and metadata */}
+                      <div className="space-y-1 pt-1">
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{pDone} of {pTasks.length} tasks completed</span>
+                          <span className="font-semibold text-foreground">{pPercent}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all duration-300"
+                            style={{ width: `${pPercent}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-border/60 text-[11px] text-muted-foreground">
+                        <span className="flex items-center gap-1 font-medium">
+                          <Users className="w-3 h-3" />
+                          {p?.members || 1} team member{p?.members === 1 ? '' : 's'}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            to={`/app/projects/${p?._id}/tasks`}
+                            className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            Board <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Recent Activity */}
+        <div className="space-y-4">
+          <Card className="border-border shadow-sm">
+            <CardHeader className="pb-3 border-b border-border">
+              <CardTitle className="text-sm font-semibold">Recent Activity</CardTitle>
+              <CardDescription className="text-xs">
+                Timeline derived from workspace and task updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              <RecentActivityTimeline
+                projectsData={projectsData}
+                allTasks={allTasks}
+              />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
-      {/* Recent Activity Section */}
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Recent Activity</CardTitle>
-          <CardDescription className="text-xs">Latest workspace updates and task events</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <RecentActivityTimeline
-            projectsData={projectsData}
-            allTasks={allTasks}
-          />
-        </CardContent>
-      </Card>
+      {/* Project Form Modal */}
+      <ProjectFormModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </div>
   );
 }

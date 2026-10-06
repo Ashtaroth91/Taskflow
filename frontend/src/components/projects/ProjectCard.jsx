@@ -12,15 +12,15 @@ export function ProjectCard({ projectItem }) {
   const projectId = project?._id;
 
   return (
-    <Card className="border-border/70 hover:border-primary/50 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+    <Card className="border-border hover:border-primary/40 shadow-sm transition-colors flex flex-col justify-between">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0 group-hover:scale-105 transition-transform">
-            <FolderKanban className="w-5 h-5" />
+          <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-semibold shrink-0">
+            <FolderKanban className="w-4.5 h-4.5" />
           </div>
           <RoleBadge role={role} />
         </div>
-        <CardTitle className="text-base font-bold group-hover:text-primary transition-colors mt-3">
+        <CardTitle className="text-base font-bold hover:text-primary transition-colors mt-3">
           <Link to={`/app/projects/${projectId}`} className="hover:underline">
             {project?.name || 'Untitled Project'}
           </Link>

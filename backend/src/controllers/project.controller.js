@@ -200,24 +200,30 @@ const addProjectMembers = asyncHandler(async (req, res) => {
         project: projectId,
         role,
     });
-    const frontendUrl = configuredFrontendUrl();
-    await sendEmail({
-        mail: user?.email,
-        subject: `Added to ${project.name}`,
-        mailgenContent: projectInvitationTemplate(
-            user.username,
-            project.name,
-            role,
-            `${frontendUrl}/project/${project._id}`,
-        ),
-    });
+
+    try {
+        const frontendUrl = configuredFrontendUrl();
+        await sendEmail({
+            mail: user?.email,
+            subject: `Added to ${project.name}`,
+            mailgenContent: projectInvitationTemplate(
+                user.username,
+                project.name,
+                role,
+                `${frontendUrl}/projects/${project._id}`,
+            ),
+        });
+    } catch (mailError) {
+        console.warn("Project invitation email send skipped/failed:", mailError.message);
+    }
+
     return res
         .status(201)
         .json(new ApiResponse(201, member, "Member added successfully"));
 });
 
 const updateMemberRole = asyncHandler(async (req, res) => {
-    const { newRole } = req.body;
+    const newRole = req.body.newRole || req.body.role;
     const { projectId, userId } = req.params;
 
     if(!AvailableUserRoles.includes(newRole)) throw new ApiError(400, "Invalid Role!!!");

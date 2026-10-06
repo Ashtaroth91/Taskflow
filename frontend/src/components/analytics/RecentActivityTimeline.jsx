@@ -1,4 +1,4 @@
-import { Clock } from 'lucide-react';
+import { Clock, FolderKanban, CheckSquare } from 'lucide-react';
 import { formatDate } from '../../utils/formatters.js';
 
 export function RecentActivityTimeline({ projectsData = [], allTasks = [] }) {
@@ -29,7 +29,7 @@ export function RecentActivityTimeline({ projectsData = [], allTasks = [] }) {
     if (task.updatedAt && task.updatedAt !== task.createdAt) {
       activities.push({
         id: `t-update-${task._id}`,
-        title: `Task "${task.title}" updated (Status: ${task.status})`,
+        title: `Task "${task.title}" updated (${task.status.replace('_', ' ')})`,
         type: 'task',
         date: new Date(task.updatedAt),
       });
@@ -45,14 +45,23 @@ export function RecentActivityTimeline({ projectsData = [], allTasks = [] }) {
   }
 
   return (
-    <div className="relative pl-4 space-y-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
+    <div className="space-y-3">
       {recentActivities.map((act) => (
-        <div key={act.id} className="relative flex items-start gap-3 text-xs">
-          <div className="absolute -left-4 top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-          <div className="space-y-0.5">
-            <p className="font-semibold text-foreground">{act.title}</p>
-            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-              <Clock className="w-3 h-3" />
+        <div
+          key={act.id}
+          className="flex items-start gap-3 p-2.5 rounded-lg border border-border/60 bg-muted/20 text-xs"
+        >
+          <div className="w-6 h-6 rounded-md bg-muted text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
+            {act.type === 'project' ? (
+              <FolderKanban className="w-3.5 h-3.5 text-primary" />
+            ) : (
+              <CheckSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0 space-y-0.5">
+            <p className="font-medium text-foreground truncate">{act.title}</p>
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Clock className="w-3 h-3 text-muted-foreground" />
               <span>{formatDate(act.date, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
           </div>

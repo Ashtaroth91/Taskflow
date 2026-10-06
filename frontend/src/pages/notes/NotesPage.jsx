@@ -38,8 +38,8 @@ export default function NotesPage() {
     enabled: !!projectId,
   });
 
-  // Client-side search filtering
-  const searchKeys = ['title', 'content'];
+  // Client-side search filtering on note content
+  const searchKeys = ['content'];
   const { searchTerm, setSearchTerm, filteredItems } = useClientFilter(notes, searchKeys);
 
   const canManage = projectRole === ROLES.ADMIN || projectRole === ROLES.PROJECT_ADMIN;
@@ -54,7 +54,7 @@ export default function NotesPage() {
 
       <PageHeader
         title={`Project Notes (${notes.length})`}
-        description="Architecture decisions, meeting notes, and workspace documentation"
+        description="Architecture decisions, meeting notes, guidelines, and workspace documentation"
         actions={
           canManage && (
             <Button
@@ -77,7 +77,7 @@ export default function NotesPage() {
         <Input
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search notes by title or content..."
+          placeholder="Search notes by content..."
           className="pl-9 h-9 text-xs"
         />
       </div>
@@ -117,24 +117,20 @@ export default function NotesPage() {
             <Card
               key={note._id}
               onClick={() => setSelectedNote(note)}
-              className="cursor-pointer border-border/70 hover:border-primary/40 shadow-sm hover:shadow transition-all group"
+              className="cursor-pointer border-border hover:border-foreground/30 shadow-sm transition-all group"
             >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                    {note.title}
-                  </CardTitle>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <FileText className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <p className="text-xs text-foreground font-normal line-clamp-4 leading-relaxed whitespace-pre-wrap">
+                    {note.content}
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                  {note.content}
-                </p>
 
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-3 border-t border-border/60">
                   <div className="flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    <span>{note.createdBy?.username || 'Member'}</span>
+                    <span className="font-medium text-foreground">{note.createdBy?.username || 'Member'}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />

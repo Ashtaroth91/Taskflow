@@ -43,7 +43,7 @@ export default function ProjectMembersPage() {
   // Role Update Mutation
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, newRole }) => {
-      return await projectsApi.updateMemberRole(projectId, userId, { role: newRole });
+      return await projectsApi.updateMemberRole(projectId, userId, { newRole, role: newRole });
     },
     onSuccess: () => {
       showToast.success('Member role updated successfully!');

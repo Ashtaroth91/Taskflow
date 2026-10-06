@@ -56,10 +56,11 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Subdued and minimal */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -68,10 +69,5 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40 transition-colors;
-}
-
-/* Glassmorphism utility */
-.glass-panel {
-  @apply bg-background/80 backdrop-blur-md border border-border/50;
+  @apply bg-border rounded-full hover:bg-muted-foreground/30 transition-colors;
 }

@@ -22,26 +22,26 @@ export function NoteFormModal({ isOpen, onClose, projectId, noteToEdit = null })
     handleSubmit,
     reset,
     setError,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(noteSchema),
     defaultValues: {
-      title: '',
       content: '',
     },
   });
+
+  const contentValue = watch('content') || '';
 
   useEffect(() => {
     if (isOpen) {
       setApiError(null);
       if (noteToEdit) {
         reset({
-          title: noteToEdit.title || '',
           content: noteToEdit.content || '',
         });
       } else {
         reset({
-          title: '',
           content: '',
         });
       }
@@ -50,10 +50,11 @@ export function NoteFormModal({ isOpen, onClose, projectId, noteToEdit = null })
 
   const mutation = useMutation({
     mutationFn: async (values) => {
+      const payload = { content: values.content.trim() };
       if (isEditing) {
-        return await notesApi.updateNote(projectId, noteToEdit._id, values);
+        return await notesApi.updateNote(projectId, noteToEdit._id, payload);
       }
-      return await notesApi.createNote(projectId, values);
+      return await notesApi.createNote(projectId, payload);
     },
     onSuccess: () => {
       showToast.success(isEditing ? 'Note updated successfully!' : 'Note created successfully!');
@@ -64,12 +65,8 @@ export function NoteFormModal({ isOpen, onClose, projectId, noteToEdit = null })
       const parsed = parseApiError(err);
       setApiError(parsed.message);
 
-      if (parsed.fieldErrors) {
-        Object.entries(parsed.fieldErrors).forEach(([field, msg]) => {
-          if (['title', 'content'].includes(field)) {
-            setError(field, { type: 'server', message: msg });
-          }
-        });
+      if (parsed.fieldErrors?.content) {
+        setError('content', { type: 'server', message: parsed.fieldErrors.content });
       }
     },
   });
@@ -84,43 +81,32 @@ export function NoteFormModal({ isOpen, onClose, projectId, noteToEdit = null })
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? 'Edit Project Note' : 'Create Project Note'}
-      description="Document architecture decisions, meeting notes, or project documentation."
+      description="Document architecture decisions, meeting notes, guidelines, or research for your project team."
     >
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-2">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-1">
         {apiError && (
-          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-2 text-destructive text-xs">
+          <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2 text-destructive text-xs">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>{apiError}</span>
           </div>
         )}
 
-        {/* Note Title */}
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-foreground">Note Title *</label>
-          <div className="relative">
-            <FileText className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-            <Input
-              {...register('title')}
-              placeholder="e.g. Architecture Overview & API Guidelines"
-              className="pl-9 text-xs"
-              error={errors.title?.message}
-            />
-          </div>
-        </div>
-
         {/* Note Content */}
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-foreground">Note Content *</label>
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-foreground">Note Content *</label>
+            <span className="text-[11px] text-muted-foreground">{contentValue.length}/5000 characters</span>
+          </div>
           <textarea
             {...register('content')}
-            rows={6}
-            placeholder="Write note details, specifications, or team guidelines..."
-            className="flex w-full rounded-md border border-input bg-background p-3 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border-border"
+            rows={8}
+            placeholder="Write meeting notes, architecture decisions, requirements, or sprint documentation..."
+            className="flex w-full rounded-lg border border-input bg-background p-3 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 border-border leading-relaxed font-sans"
           />
           {errors.content && <p className="text-xs text-destructive">{errors.content.message}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-border">
+        <div className="flex justify-end gap-2.5 pt-3 border-t border-border">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>

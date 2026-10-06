@@ -12,11 +12,11 @@ export function TaskCard({ task, onSelect, onStatusChange, canEditStatus }) {
   const hasAttachments = task.attachments && task.attachments.length > 0;
 
   return (
-    <Card className="border-border/60 hover:border-primary/50 shadow-sm hover:shadow transition-all bg-card/90 cursor-pointer group">
-      <CardContent className="p-4 space-y-3" onClick={() => onSelect(task)}>
+    <Card className="border-border hover:border-primary/40 shadow-xs transition-colors bg-card cursor-pointer group">
+      <CardContent className="p-3.5 space-y-2.5" onClick={() => onSelect(task)}>
         {/* Header: Title & Status Badge */}
         <div className="flex items-start justify-between gap-2">
-          <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors leading-snug">
+          <h4 className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors leading-snug">
             {task.title}
           </h4>
           <TaskStatusBadge status={task.status} />

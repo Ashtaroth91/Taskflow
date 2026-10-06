@@ -1,37 +1,65 @@
-import { useState } from 'react';
-import { Search } from 'lucide-react';
+import { Menu, Sun, Moon, CheckSquare } from 'lucide-react';
 import { Breadcrumbs } from '../components/common/Breadcrumbs.jsx';
-import { NotificationsPopover } from '../components/layout/NotificationsPopover.jsx';
 import { UserDropdown } from '../components/layout/UserDropdown.jsx';
-import { Input } from '../components/ui/Input.jsx';
+import { useTheme } from '../hooks/useTheme.js';
+import { THEMES } from '../config/theme.config.js';
+import { Button } from '../components/ui/Button.jsx';
+import { ENV } from '../config/env.config.js';
 
-export function TopBar() {
-  const [searchQuery, setSearchQuery] = useState('');
+export function TopBar({ onToggleSidebar }) {
+  const { theme, setTheme } = useTheme();
+
+  const toggleTheme = () => {
+    setTheme(theme === THEMES.DARK ? THEMES.LIGHT : THEMES.DARK);
+  };
 
   return (
-    <header className="h-16 border-b border-border bg-card/70 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 transition-colors">
-      {/* Left side: Breadcrumbs and Search Bar */}
-      <div className="flex items-center gap-4 flex-1 max-w-xl">
-        <div className="hidden lg:block shrink-0">
-          <Breadcrumbs />
+    <header className="h-14 border-b border-border bg-card/95 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30 transition-colors">
+      {/* Left side: Mobile menu toggle + Brand or Breadcrumbs */}
+      <div className="flex items-center gap-3">
+        {/* Mobile Hamburger Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggleSidebar}
+          className="md:hidden h-8 w-8 text-muted-foreground hover:text-foreground"
+          aria-label="Toggle navigation menu"
+        >
+          <Menu className="w-4 h-4" />
+        </Button>
+
+        {/* Mobile Brand indicator */}
+        <div className="flex md:hidden items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+            <CheckSquare className="w-3.5 h-3.5" />
+          </div>
+          <span className="font-semibold text-sm tracking-tight">{ENV.APP_NAME}</span>
         </div>
 
-        {/* Search Bar Placeholder (Client-side search input) */}
-        <div className="relative w-full max-w-xs sm:max-w-sm">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects or tasks..."
-            className="pl-9 pr-4 h-9 text-xs bg-background/50 focus:bg-background border-border/80 rounded-xl"
-          />
+        {/* Desktop Breadcrumbs */}
+        <div className="hidden md:block">
+          <Breadcrumbs />
         </div>
       </div>
 
-      {/* Right side: Notifications and User Menu */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        <NotificationsPopover />
-        <div className="h-5 w-[1px] bg-border mx-1" />
+      {/* Right side: Theme Toggle & User Menu */}
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          title={`Switch to ${theme === THEMES.DARK ? 'light' : 'dark'} mode`}
+          aria-label="Toggle color theme"
+        >
+          {theme === THEMES.DARK ? (
+            <Sun className="w-4 h-4 text-amber-500" />
+          ) : (
+            <Moon className="w-4 h-4 text-slate-600" />
+          )}
+        </Button>
+
+        <div className="h-4 w-[1px] bg-border mx-1" />
         <UserDropdown />
       </div>
     </header>

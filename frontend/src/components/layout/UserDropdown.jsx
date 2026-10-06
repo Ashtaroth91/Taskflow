@@ -80,16 +80,13 @@ export function UserDropdown() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 rounded-xl border border-border bg-card shadow-xl p-2 z-50 animate-in fade-in-80 slide-in-from-top-2 duration-150">
+        <div className="absolute right-0 mt-2 w-60 rounded-lg border border-border bg-card shadow-lg p-1.5 z-50 animate-in fade-in-80 duration-150">
           {/* User Details Header */}
-          <div className="px-3 py-2.5 border-b border-border mb-1 space-y-1">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-foreground truncate">
-                {user.username || 'User'}
-              </p>
-              {user.role && <RoleBadge role={user.role} />}
-            </div>
-            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          <div className="px-3 py-2 border-b border-border mb-1 space-y-0.5">
+            <p className="text-xs font-semibold text-foreground truncate">
+              {user.username || 'User'}
+            </p>
+            <p className="text-[11px] text-muted-foreground truncate">{user.email}</p>
           </div>
 
           {/* Menu Links */}
@@ -97,7 +94,7 @@ export function UserDropdown() {
             <Link
               to={ROUTES.ACCOUNT}
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
             >
               <UserIcon className="w-4 h-4" />
               Account Settings
@@ -105,17 +102,17 @@ export function UserDropdown() {
 
             <button
               onClick={toggleTheme}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-md transition-colors"
             >
               <span className="flex items-center gap-2.5">
                 {theme === THEMES.DARK ? (
-                  <Sun className="w-4 h-4 text-amber-400" />
+                  <Sun className="w-4 h-4 text-amber-500" />
                 ) : (
-                  <Moon className="w-4 h-4" />
+                  <Moon className="w-4 h-4 text-slate-500" />
                 )}
                 Appearance
               </span>
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground">
+              <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
                 {theme}
               </span>
             </button>
@@ -125,7 +122,7 @@ export function UserDropdown() {
           <div className="pt-1 mt-1 border-t border-border">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-md transition-colors"
             >
               <LogOut className="w-4 h-4" />
               Sign Out

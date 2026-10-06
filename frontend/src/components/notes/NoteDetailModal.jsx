@@ -40,24 +40,24 @@ export function NoteDetailModal({ note, isOpen, onClose, projectId, projectRole,
       <Modal
         isOpen={isOpen && !isDeleting}
         onClose={onClose}
-        title={note.title}
+        title="Project Note"
         description={`Created ${formatDate(note.createdAt, { dateStyle: 'medium' })}`}
       >
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-1">
           {/* Author Metadata */}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground pb-3 border-b border-border/60">
+          <div className="flex items-center gap-4 text-xs text-muted-foreground pb-2.5 border-b border-border">
             <div className="flex items-center gap-1.5">
-              <User className="w-3.5 h-3.5" />
-              <span>{note.createdBy?.username || 'Team Member'}</span>
+              <User className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="font-medium text-foreground">{note.createdBy?.username || 'Team Member'}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
+              <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
               <span>{formatDate(note.createdAt, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
           </div>
 
           {/* Note Content Body */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/60 text-xs leading-relaxed text-foreground whitespace-pre-wrap max-h-96 overflow-y-auto">
+          <div className="p-4 rounded-lg bg-muted/40 border border-border text-xs leading-relaxed text-foreground whitespace-pre-wrap max-h-96 overflow-y-auto font-sans">
             {note.content}
           </div>
 
@@ -100,17 +100,20 @@ export function NoteDetailModal({ note, isOpen, onClose, projectId, projectRole,
         title="Delete Project Note"
         description="Are you sure you want to permanently delete this note?"
       >
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-1">
           {apiError && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-2 text-destructive text-xs">
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2 text-destructive text-xs">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
               <span>{apiError}</span>
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground">
-            Note <span className="font-bold text-foreground">"{note.title}"</span> will be permanently removed.
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This note will be permanently removed.
           </p>
+          <div className="p-3 bg-muted/30 border border-border rounded-lg text-xs italic text-muted-foreground line-clamp-3">
+            "{note.content}"
+          </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-border">
             <Button variant="outline" size="sm" onClick={() => setIsDeleting(false)}>

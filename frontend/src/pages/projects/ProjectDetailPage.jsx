@@ -89,7 +89,7 @@ export default function ProjectDetailPage() {
       <Breadcrumbs />
 
       {/* Project Overview Header */}
-      <div className="glass-panel p-6 rounded-2xl border border-border/80 space-y-4 shadow-sm">
+      <div className="bg-card p-6 rounded-xl border border-border space-y-4 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-3">

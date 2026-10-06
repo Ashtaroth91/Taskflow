@@ -79,9 +79,9 @@ export default function AccountPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <Card className="border-border/70 shadow-sm h-fit">
+        <Card className="border-border shadow-xs h-fit">
           <CardHeader className="text-center pb-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary font-bold text-xl flex items-center justify-center mx-auto mb-2 border-2 border-primary/20">
+            <div className="w-14 h-14 rounded-full bg-primary/10 text-primary font-bold text-lg flex items-center justify-center mx-auto mb-2 border border-primary/20">
               {getInitials(user?.username || user?.email)}
             </div>
             <CardTitle className="text-lg font-bold">{user?.username}</CardTitle>
@@ -131,7 +131,7 @@ export default function AccountPage() {
 
           <CardContent>
             {apiError && (
-              <div className="mb-4 p-3.5 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3 text-destructive text-xs">
+              <div className="mb-4 p-3.5 bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-3 text-destructive text-xs">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{apiError}</span>
               </div>

@@ -49,22 +49,7 @@ const registerUser = asyncHandler(async (req, res) => {
         username,
         email,
         password,
-        isEmailVerified: false,
-    });
-    const { unHashedToken, hashedToken, tokenExpiry } =
-        user.generateTemporaryToken();
-    user.emailVerificationToken = hashedToken;
-    user.emailVerificationTokenExpiry = tokenExpiry;
-    await user.save({ validateBeforeSave: false });
-
-    const frontendUrl = configuredFrontendUrl();
-    await sendEmail({
-        mail: user?.email,
-        subject: "Verify your email for TaskFlow",
-        mailgenContent: emailVerificationTemplate(
-            user.username,
-            `${frontendUrl}/verify-email/${unHashedToken}`,
-        ),
+        isEmailVerified: true,
     });
 
     const createdUser = await User.findById(user._id).select(
@@ -76,7 +61,7 @@ const registerUser = asyncHandler(async (req, res) => {
             {
                 user: createdUser,
             },
-            "User registered successfully. Please check your email to verify your account.",
+            "User registered successfully.",
         ),
     );
 });
@@ -95,13 +80,6 @@ const loginUser = asyncHandler(async (req, res) => {
     const isPasswordCorrect = await user.isPasswordCorrect(password);
     if (!isPasswordCorrect) {
         throw new ApiError(401, "Invalid credentials", []);
-    }
-    if (!user.isEmailVerified) {
-        throw new ApiError(
-            403,
-            "Email not verified. Please verify your email before logging in.",
-            [],
-        );
     }
     const { accessToken, refreshToken } = await getAccessAndRefreshTokens(
         user._id,

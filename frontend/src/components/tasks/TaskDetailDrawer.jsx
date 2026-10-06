@@ -164,7 +164,7 @@ export function TaskDetailDrawer({ taskId, projectId, projectRole, members = [],
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-background/80 backdrop-blur-sm">
-      <div className="w-full max-w-xl bg-card border-l border-border h-full shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
+      <div className="w-full max-w-xl bg-card border-l border-border h-full shadow-lg flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="p-6 border-b border-border flex items-start justify-between gap-4 sticky top-0 bg-card/95 backdrop-blur z-10">
           <div className="space-y-1 min-w-0">

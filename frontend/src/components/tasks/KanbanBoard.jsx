@@ -28,14 +28,14 @@ export function KanbanBoard({ tasks = [], onSelectTask, onStatusChange, canEditS
         return (
           <div
             key={column.id}
-            className={`rounded-2xl border border-border/70 bg-card/40 p-4 space-y-4 border-t-4 ${column.accentColor} shadow-sm`}
+            className={`rounded-xl border border-border bg-muted/20 p-3.5 space-y-3 border-t-2 ${column.accentColor}`}
           >
             {/* Column Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-border/50">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
               <h3 className="text-xs font-bold text-foreground tracking-tight flex items-center gap-2">
                 {column.title}
               </h3>
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border/50">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-background text-muted-foreground border border-border">
                 {columnTasks.length}
               </span>
             </div>
