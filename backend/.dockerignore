@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.DS_Store
+coverage
+tests
+__tests__
+*.log
+PRD*.md
+FRONTEND_API_CONTRACT.md
+
